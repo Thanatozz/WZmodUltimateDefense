@@ -6,8 +6,8 @@ scavs = [
     "*Flamer* *School Bus Body* BaBaProp",
     "*BusCannon* *Fire Engine Body* BaBaProp",
     "*Flamer* *Fire Engine Body* BaBaProp",
-    // "*Jeep MG* *Baba Jeep Body* BaBaProp", // TODO same name conflict B2JeepBody
-    "*BabaRocket* *Baba Jeep Body* BaBaProp", // TODO same name conflict B2RKJeepBody
+    "*Jeep MG* *Jeep Body* BaBaProp",
+    "*BabaRocket* *Rocket Jeep Body* BaBaProp",
     "*Buggy MG* *Buggy Body* BaBaProp",
     "*BabaRocket* *Rocket Buggy Body* BaBaProp",
     "*Trike MG* *Trike Body* BaBaProp",
