@@ -2,6 +2,6 @@
 	"AI": {
 		"js": "Scavengers.js",
 		"name": "Scavengers",
-		"tip": "Scavengers want to destroy your command center"
+		"tip": "Attacks your command center"
 	}
 }
