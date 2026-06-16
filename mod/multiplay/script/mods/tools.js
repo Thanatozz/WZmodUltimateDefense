@@ -1,19 +1,4 @@
 /**
- * Make every component available to the given player. This means the player can
- * actually build any unit, regardless of what is currently researched.
- */
-function makeEverythingAvailable(player)
-{
-	for (const x of [ "Body", "Propulsion", "Weapon", "Sensor", "Construct", "Repair", "ECM" ])
-	{
-		for (const component of Object.values(Stats[x]))
-		{
-			makeComponentAvailable(component.Id, player);
-		}
-	}
-}
-
-/**
  * An enemy player may be required to start the game, so Tower Defense Mod
  * provides a dummy AI called "Scavengers".
  * This function removes the dummy AI from the map.

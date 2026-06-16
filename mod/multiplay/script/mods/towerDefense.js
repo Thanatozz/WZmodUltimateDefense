@@ -22,7 +22,6 @@ function td_eventStartLevel()
 
 	removeScavengerAI();
 	disableVTOL();
-	makeEverythingAvailable(scavAI);
 	Spawner.player = scavAI;
 
 	// Start the config reader
