@@ -37,6 +37,11 @@ function td_eventStartLevel()
 
 function td_eventDestroyed(object)
 {
+	if (object.type === FEATURE)
+	{
+		return;
+	}
+
 	// Reward players with power upon destroying a scavenger
 	if (object.player == scavAI)
 	{
