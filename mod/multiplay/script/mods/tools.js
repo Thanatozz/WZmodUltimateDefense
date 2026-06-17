@@ -8,7 +8,7 @@ function removeScavengerAI()
 	hackNetOff();
 	for (let player = 0; player < maxPlayers; player++)
 	{
-		if (playerData[player].scriptName === "Scavengers.js")
+		if (playerData[player].isAI)
 		{
 			enumStruct(player).forEach(s => removeObject(s));
 			enumDroid(player).forEach(s => removeObject(s));
@@ -29,7 +29,7 @@ function getScavAI()
 
 	for (let player = 0; player < maxPlayers; player++)
 	{
-		if (playerData[player].scriptName === "Scavengers.js")
+		if (playerData[player].isAI)
 		{
 			return player; // "false" scavs
 		}
