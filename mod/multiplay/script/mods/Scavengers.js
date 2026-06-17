@@ -1,33 +1,43 @@
+var targets = [];
+
 function updateOrders()
 {
-	const targets = getTargets();
-	if (!targets)
+	if (targets.length === 0)
 	{
 		return;
 	}
 
-	enumDroid(scavengerPlayer).forEach(droid =>
+	// Check if targets exist
+	for (const target of targets)
+	{
+		const obj = getObject(target.x, target.y);
+		if (!obj)
+		{
+			getNewTargets();
+			updateOrders();
+			return;
+		}
+	}
+
+	for (const droid of enumDroid(scavengerPlayer))
 	{
 		if (droid.order !== DORDER_ATTACK)
 		{
-			const target = targets[syncRandom(targets.length)];
+			const target = targets[Math.floor(syncRandom(targets.length))];
 			orderDroidObj(droid, DORDER_ATTACK, target);
 		}
-	});
+	}
 }
 
-function getTargets()
+function getNewTargets()
 {
-	let targets = [];
+	targets = [];
 	for (let player = 0; player < maxPlayers; player++)
 	{
+		if (player === scavengerPlayer)
+		{
+			continue;
+		}
 		targets = targets.concat(enumStruct(player, HQ));
 	}
-
-	if (targets.length === 0)
-	{
-		return null;
-	}
-
-	return targets;
 }

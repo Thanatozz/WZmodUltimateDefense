@@ -31,6 +31,7 @@ function td_eventStartLevel()
 
 	if (IS_HACK) // HACK WARNING TODO
 	{
+		getNewTargets();
 		setTimer("updateOrders", 1000);
 	}
 }
