@@ -13,6 +13,9 @@
 4. Download [`📦TowerDefenseMod.zip`](https://github.com/aco4/WZmodTowerDefense/releases/latest). Put in `📁mods/4.6.1/autoload/`
 5. Restart Warzone 2100
 
+## Recommended Game Settings
+![Recommended Settings](https://raw.githubusercontent.com/aco4/WZmodTowerDefense/main/recommended_settings.png)
+
 ## Configuration
 Edit `📄config.js` to configure:
 - time between rounds
