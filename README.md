@@ -14,7 +14,7 @@
 5. Restart Warzone 2100
 
 ## Recommended Game Settings
-![Recommended Settings](https://raw.githubusercontent.com/aco4/WZmodTowerDefense/main/recommended_settings.png)
+![Recommended Settings](https://raw.githubusercontent.com/aco4/WZmodTowerDefense/master/recommended_settings.png)
 
 ## Configuration
 Edit `📄config.js` to configure:
