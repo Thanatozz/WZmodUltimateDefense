@@ -83,10 +83,6 @@ function isFFA() {
     return alliancesType == NO_ALLIANCES || alliancesType == ALLIANCES;
 }
 
-function isGameExpired() {
-    return gameTimeLimit > 0 && gameTime > gameTimeLimit;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
 // Write custom end condition logic below                                     //
@@ -99,6 +95,5 @@ function isAlive(player) {
 
 function isGameOver(alive, dead) {
     return alive.length <= 0
-        || isGameExpired()
         || (index >= actions.length && Spawner.queue.length == 0 && countDroid(DROID_ANY, scavAI) == 0);
 }
