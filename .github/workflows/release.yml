@@ -16,15 +16,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create archive
+      - name: Create release archives
         run: |
+          mkdir -p release/ dist/
+
           ARCHIVE="${{ github.event.repository.name }}-${{ github.ref_name }}.zip"
-          cd mod
-          zip -r "../$ARCHIVE" .
-          cd ..
-          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+          rsync -a mod/ dist/
+          (cd dist && zip -r "../release/$ARCHIVE" .)
+
+          for overlay in overlays/*; do
+            [ -d "$overlay" ] || continue
+
+            map="$(basename "$overlay")"
+            ARCHIVE="${{ github.event.repository.name }}-${{ github.ref_name }}-$map.zip"
+
+            rm -rf dist/
+            mkdir -p dist/
+            rsync -a mod/ dist/
+            rsync -a "$overlay"/ dist/
+            (cd dist && zip -r "../release/$ARCHIVE" .)
+          done
 
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.ARCHIVE }}
+          files: release/*.zip
