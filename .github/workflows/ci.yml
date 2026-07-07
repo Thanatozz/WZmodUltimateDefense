@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'mod/**'
+      - 'overlays/**'
 
 jobs:
   build-default:
