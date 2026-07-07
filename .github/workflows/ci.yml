@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create default mod
+      - name: Build default mod
         run: |
           mkdir -p dist/
           rsync -a mod/ dist/
@@ -38,16 +38,16 @@ jobs:
       - name: List overlays
         id: list
         run: |
-          # Produces a JSON array like ["Florence","Chicago"]
           overlays=$(ls -1 overlays/ | jq -R . | jq -sc .)
           echo "overlays=$overlays" >> "$GITHUB_OUTPUT"
 
   build-overlays:
     needs: detect-overlays
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        map: ${{ fromJson(needs.detect-overlays.outputs.overlays) }}
+        overlay: ${{ fromJson(needs.detect-overlays.outputs.overlays) }}
       fail-fast: false
 
     steps:
@@ -57,13 +57,11 @@ jobs:
       - name: Merge default mod + overlay
         run: |
           mkdir -p dist/
-          # 1. Start with everything from mod/
           rsync -a mod/ dist/
-          # 2. Overlay files
-          rsync -a overlays/${{ matrix.map }}/ dist/
+          rsync -a overlays/${{ matrix.overlay }}/ dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ github.sha }}-${{ matrix.map }}
+          name: ${{ github.event.repository.name }}-${{ github.sha }}-${{ matrix.overlay }}
           path: dist/
