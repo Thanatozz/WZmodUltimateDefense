@@ -3,41 +3,102 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - '**'
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build-default:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create release archives
+      - name: Build default mod
         run: |
-          mkdir -p release/ dist/
-
-          ARCHIVE="${{ github.event.repository.name }}-${{ github.ref_name }}.zip"
+          mkdir -p dist/
           rsync -a mod/ dist/
-          (cd dist && zip -r "../release/$ARCHIVE" .)
 
-          for overlay in overlays/*; do
-            [ -d "$overlay" ] || continue
+          archive="${{ github.event.repository.name }}-${{ github.ref_name }}.zip"
 
-            map="$(basename "$overlay")"
-            ARCHIVE="${{ github.event.repository.name }}-${{ github.ref_name }}-$map.zip"
+          (cd dist && zip -r "../$archive" .)
 
-            rm -rf dist/
-            mkdir -p dist/
-            rsync -a mod/ dist/
-            rsync -a "$overlay"/ dist/
-            (cd dist && zip -r "../release/$ARCHIVE" .)
-          done
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: default
+          path: "*.zip"
 
-      - name: GitHub Release
+  detect-overlays:
+    runs-on: ubuntu-latest
+    outputs:
+      overlays: ${{ steps.list.outputs.overlays }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: List overlays
+        id: list
+        run: |
+          overlays=$(ls -1 overlays/ | jq -R . | jq -sc .)
+          echo "overlays=$overlays" >> "$GITHUB_OUTPUT"
+
+  build-overlays:
+    needs: detect-overlays
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        overlay: ${{ fromJson(needs.detect-overlays.outputs.overlays) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build archive
+        run: |
+          mkdir -p dist
+          rsync -a mod/ dist/
+          rsync -a overlays/${{ matrix.overlay }}/ dist/
+
+          archive="${{ github.event.repository.name }}-${{ github.ref_name }}-${{ matrix.overlay }}.zip"
+
+          (cd dist && zip -r "../$archive" .)
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.overlay }}
+          path: "*.zip"
+
+  release:
+    needs: [build-default, build-overlays]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${{ github.ref_name }}$" | head -n1)
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Commits since $PREV_TAG" > CHANGELOG.md
+            git log "$PREV_TAG..${{ github.ref_name }}" --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          else
+            echo "## Commits" > CHANGELOG.md
+            git log --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          fi
+
+      - name: Download archives
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.zip
+          files: artifacts/*.zip
+          body_path: CHANGELOG.md

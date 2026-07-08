@@ -44,12 +44,10 @@ jobs:
   build-overlays:
     needs: detect-overlays
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         overlay: ${{ fromJson(needs.detect-overlays.outputs.overlays) }}
       fail-fast: false
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
