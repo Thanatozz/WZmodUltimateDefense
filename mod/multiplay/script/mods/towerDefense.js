@@ -9,8 +9,10 @@ let powerRewardFunction = defaultPowerRewardFunction();
 // Use `var` to persist through save-loads
 var ranks;
 var index = 0;
-var scavAI = getScavAI();
-var IS_HACK = scavengers == 0 && scavAI == scavengerPlayer; // HACK WARNING TODO
+var wavePlayer = getWavePlayer();
+// getWavePlayer() only ever returns scavengerPlayer when it ran out of options,
+// so this still identifies the no-enemy-slot case.
+var IS_HACK = scavengers == 0 && wavePlayer == scavengerPlayer; // HACK WARNING TODO
 
 
 namespace("td_");
@@ -20,9 +22,9 @@ function td_eventStartLevel()
 	// Do this after totalRounds is determined
 	ranks = calculateRanks(totalRounds);
 
-	removeScavengerAI();
+	clearWavePlayer(wavePlayer);
 	disableVTOL();
-	Spawner.player = scavAI;
+	Spawner.player = wavePlayer;
 
 	// Start the config reader
 	next();
@@ -31,7 +33,6 @@ function td_eventStartLevel()
 
 	if (IS_HACK) // HACK WARNING TODO
 	{
-		getNewTargets();
 		setTimer("updateOrders", 1000);
 	}
 }
@@ -44,11 +45,11 @@ function td_eventDestroyed(object)
 	}
 
 	// Reward players with power upon destroying a scavenger
-	if (object.player == scavAI)
+	if (object.player == wavePlayer)
 	{
 		for (let player = 0; player < maxPlayers; player++)
 		{
-			if (player !== scavAI)
+			if (player !== wavePlayer)
 			{
 				addPower(player, powerRewardFunction(object.cost));
 			}
@@ -59,7 +60,7 @@ function td_eventDestroyed(object)
 function updateResearch()
 {
 	const timeMs = currentResearchTime() - researchDelayMs;
-	giveResearch(scavAI, timeMs);
+	giveResearch(wavePlayer, timeMs);
 }
 
 function defaultPowerRewardFunction()

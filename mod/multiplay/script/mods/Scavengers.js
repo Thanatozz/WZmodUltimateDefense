@@ -1,43 +1,23 @@
-var targets = [];
+//
+// Wave attacker targeting, driven from the rules script.
+//
+// Only used in the "hack" mode, where no dedicated enemy slot exists and the
+// rules script has to command the units itself. See getWavePlayer().
+//
+
+include("multiplay/skirmish/WaveDefenseCommon.js");
+
+function waveMe()
+{
+	return wavePlayer;
+}
+
+function waveRandom(n)
+{
+	return syncRandom(n);
+}
 
 function updateOrders()
 {
-	if (targets.length === 0)
-	{
-		return;
-	}
-
-	// Check if targets exist
-	for (const target of targets)
-	{
-		const obj = getObject(target.x, target.y);
-		if (!obj)
-		{
-			getNewTargets();
-			updateOrders();
-			return;
-		}
-	}
-
-	for (const droid of enumDroid(scavengerPlayer))
-	{
-		if (droid.order !== DORDER_ATTACK)
-		{
-			const target = targets[Math.floor(syncRandom(targets.length))];
-			orderDroidObj(droid, DORDER_ATTACK, target);
-		}
-	}
-}
-
-function getNewTargets()
-{
-	targets = [];
-	for (let player = 0; player < maxPlayers; player++)
-	{
-		if (player === scavengerPlayer)
-		{
-			continue;
-		}
-		targets = targets.concat(enumStruct(player, HQ));
-	}
+	waveUpdateOrders();
 }

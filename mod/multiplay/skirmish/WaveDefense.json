@@ -1,0 +1,7 @@
+{
+	"AI": {
+		"js": "WaveDefense.js",
+		"name": "Wave Defense",
+		"tip": "Sends waves of units at your command center"
+	}
+}

@@ -1,32 +1,47 @@
+// The AI script that marks a slot as the wave attacker. See getWavePlayer().
+const WAVE_DEFENSE_SCRIPT = "WaveDefense.js";
+
 /**
- * An enemy player may be required to start the game, so Tower Defense Mod
- * provides a dummy AI called "Scavengers".
- * This function removes the dummy AI from the map.
+ * The wave attacker starts on the map like any other player. It is not supposed
+ * to have a base, so wipe whatever it was given.
+ *
+ * Only touches the wave player: other AIs in the game keep their bases.
+ *
+ * @param {number} player - the wave attacker
  */
-function removeScavengerAI()
+function clearWavePlayer(player)
 {
 	hackNetOff();
-	for (let player = 0; player < maxPlayers; player++)
-	{
-		if (playerData[player].isAI)
-		{
-			enumStruct(player).forEach(s => removeObject(s));
-			enumDroid(player).forEach(s => removeObject(s));
-		}
-	}
+	enumStruct(player).forEach(s => removeObject(s));
+	enumDroid(player).forEach(s => removeObject(s));
 	hackNetOn();
 }
 
 /**
- * @returns {number} The player number to use for the scavenger AI
+ * Decide which player runs the waves.
+ *
+ * @returns {number} The player number to use for the wave attacker
  */
-function getScavAI()
+function getWavePlayer()
 {
+	// Preferred: someone put the Wave Defense AI in a slot. This is the only
+	// option that stays correct when other AIs are also in the game.
+	for (let player = 0; player < maxPlayers; player++)
+	{
+		if (playerData[player].scriptName === WAVE_DEFENSE_SCRIPT)
+		{
+			return player;
+		}
+	}
+
 	if (scavengers !== 0)
 	{
 		return scavengerPlayer; // "true" scavs
 	}
 
+	// Fallback for setups that just drop any AI into the enemy slot. Ambiguous
+	// as soon as there is more than one AI, which is why the Wave Defense AI
+	// exists in the first place.
 	for (let player = 0; player < maxPlayers; player++)
 	{
 		if (playerData[player].isAI)
