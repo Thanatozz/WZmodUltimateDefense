@@ -1,5 +1,8 @@
 class Template
 {
+	// Costs never change during a game, and a budgeted round asks for them a lot.
+	static costCache = {};
+
 	/**
 	 * @param {string} body - component name
 	 * @param {string} propulsion - component name
@@ -29,6 +32,53 @@ class Template
 	static toString(template)
 	{
 		return template.turrets.join(" ") + " " + template.body + " " + template.propulsion;
+	}
+
+	/**
+	 * What a template costs to build, without building it.
+	 *
+	 * Mirrors calcPower() in the game's src/droid.cpp: turret costs are added up,
+	 * but the propulsion is a percentage on top of the body rather than a flat
+	 * addition - wheels are +25%, tracks +125%.
+	 *
+	 * makeTemplate() would also give a cost, but it returns null for anything the
+	 * player cannot build yet, which is useless for budgeting future rounds.
+	 *
+	 * @param {object} template
+	 * @returns {number} power
+	 */
+	static cost(template)
+	{
+		const key = Template.toString(template);
+		if (Template.costCache[key] !== undefined)
+		{
+			return Template.costCache[key];
+		}
+
+		const body = Template.buildPower(Stats.Body[template.body]);
+		const propulsion = Template.buildPower(Stats.Propulsion[template.propulsion]);
+
+		let cost = Math.floor(body * (100 + propulsion) / 100);
+		for (const turret of template.turrets)
+		{
+			cost += Template.buildPower(Template.getTurret(turret));
+		}
+
+		Template.costCache[key] = cost;
+		return cost;
+	}
+
+	/**
+	 * The Stats object capitalises the field names from stats/*.json, but not
+	 * every component lists a cost - treat a missing one as free.
+	 */
+	static buildPower(stat)
+	{
+		if (!stat)
+		{
+			return 0;
+		}
+		return (stat.BuildPower !== undefined ? stat.BuildPower : stat.buildPower) || 0;
 	}
 
 	static getTurret(name)

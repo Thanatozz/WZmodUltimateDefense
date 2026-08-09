@@ -1,6 +1,3 @@
-// The AI script that marks a slot as the wave attacker. See getWavePlayer().
-const WAVE_DEFENSE_SCRIPT = "WaveDefense.js";
-
 /**
  * The wave attacker starts on the map like any other player. It is not supposed
  * to have a base, so wipe whatever it was given.
@@ -18,35 +15,34 @@ function clearWavePlayer(player)
 }
 
 /**
- * Decide which player runs the waves.
+ * Decide which players run the waves.
  *
- * @returns {number} The player number to use for the wave attacker
+ * @returns {number[]} one or more player numbers, never empty
  */
-function getWavePlayer()
+function getWavePlayers()
 {
-	// Preferred: someone put the Wave Defense AI in a slot. This is the only
-	// option that stays correct when other AIs are also in the game.
-	for (let player = 0; player < maxPlayers; player++)
+	// Preferred: one or more Wave Defense AIs in slots. The only option that
+	// stays correct when other AIs are in the game, and the only one that
+	// supports more than one wave player.
+	const scripted = waveScriptPlayers();
+	if (scripted.length > 0)
 	{
-		if (playerData[player].scriptName === WAVE_DEFENSE_SCRIPT)
-		{
-			return player;
-		}
+		return scripted;
 	}
 
 	if (scavengers !== 0)
 	{
-		return scavengerPlayer; // "true" scavs
+		return [scavengerPlayer]; // "true" scavs
 	}
 
 	// Fallback for setups that just drop any AI into the enemy slot. Ambiguous
-	// as soon as there is more than one AI, which is why the Wave Defense AI
-	// exists in the first place.
+	// as soon as there is more than one AI, which is why the Wave Defense AIs
+	// exist in the first place.
 	for (let player = 0; player < maxPlayers; player++)
 	{
 		if (playerData[player].isAI)
 		{
-			return player; // "false" scavs
+			return [player]; // "false" scavs
 		}
 	}
 
@@ -54,7 +50,186 @@ function getWavePlayer()
 	// No dedicated enemy player has been provided. The mod can still spawn and
 	// control scavengers, but saving/loading will not work because the units
 	// disappear.
-	return scavengerPlayer; // "hack" scavs
+	return [scavengerPlayer]; // "hack" scavs
+}
+
+/**
+ * How much bigger or smaller one wave player's share of a round is, taken from
+ * the difficulty set on that slot in the lobby.
+ *
+ * Per slot rather than one setting for the whole horde, so a game can mix an
+ * Easy bot with an Insane one and each sends what its own setting says.
+ *
+ * @param {number} player
+ * @returns {number} multiplier
+ */
+function playerScale(player)
+{
+	// The scavenger slot is outside playerData and has no difficulty setting
+	if (player >= maxPlayers)
+	{
+		return difficultyScale.medium;
+	}
+
+	const difficulty = playerData[player].difficulty;
+
+	if (difficulty === EASY)
+	{
+		return difficultyScale.easy;
+	}
+	if (difficulty === HARD)
+	{
+		return difficultyScale.hard;
+	}
+	if (difficulty === INSANE)
+	{
+		return difficultyScale.insane;
+	}
+	return difficultyScale.medium;
+}
+
+/**
+ * Paint every wave slot in the colour of the first one, so the horde reads as a
+ * single enemy however many slots it is spread over.
+ *
+ * @param {number[]} players - the wave players, in slot order
+ */
+function unifyHordeColour(players)
+{
+	// The scavenger slot has no playerData entry and keeps its own colour
+	const slots = players.filter(player => player < maxPlayers);
+	if (slots.length < 2)
+	{
+		return;
+	}
+
+	const colour = playerData[slots[0]].colour;
+	for (const player of slots)
+	{
+		if (player !== slots[0])
+		{
+			changePlayerColour(player, colour);
+		}
+	}
+}
+
+/**
+ * Put a Command Center at a player's start position.
+ *
+ * Used when the grace period runs out on an AI, which builds to its own schedule
+ * and has no way to know it is on a clock.
+ *
+ * @param {number} player
+ * @returns {boolean} whether one was placed
+ */
+function grantHQ(player)
+{
+	const start = startPositions[player];
+	if (!start)
+	{
+		return false;
+	}
+
+	hackNetOff();
+
+	let structure = placeHQNear(player, start);
+
+	// A base built solid leaves nowhere to put it. Clear whatever sits closest
+	// to the start position and try again: losing a building beats losing the
+	// game because a builder happened to fill every tile.
+	for (let attempt = 0; attempt < 4 && !structure; attempt++)
+	{
+		const blocking = nearestStructure(player, start);
+		if (!blocking)
+		{
+			break;
+		}
+		removeObject(blocking);
+		structure = placeHQNear(player, start);
+	}
+
+	hackNetOn();
+	return !!structure;
+}
+
+/**
+ * addStructure returns null when the spot is blocked, so probe outwards in rings
+ * rather than trusting the start tile to be free.
+ *
+ * @returns {object|null} the structure, or null if nowhere was free
+ */
+function placeHQNear(player, start)
+{
+	for (let radius = 0; radius <= 6; radius++)
+	{
+		for (let dx = -radius; dx <= radius; dx++)
+		{
+			for (let dy = -radius; dy <= radius; dy++)
+			{
+				// Only the ring: inner tiles were covered by earlier passes
+				if (radius > 0 && Math.abs(dx) !== radius && Math.abs(dy) !== radius)
+				{
+					continue;
+				}
+
+				// addStructure takes world coordinates, hence the tile size
+				const structure = addStructure("A0CommandCentre", player,
+					(start.x + dx) * 128, (start.y + dy) * 128);
+
+				if (structure)
+				{
+					return structure;
+				}
+			}
+		}
+	}
+
+	return null;
+}
+
+/**
+ * @returns {object|null} the player's structure closest to the given position
+ */
+function nearestStructure(player, position)
+{
+	let best = null;
+	let bestDistance = Infinity;
+
+	for (const structure of enumStruct(player))
+	{
+		const dx = structure.x - position.x;
+		const dy = structure.y - position.y;
+		const distance = dx * dx + dy * dy;
+
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			best = structure;
+		}
+	}
+
+	return best;
+}
+
+/**
+ * Keep the horde from fighting itself. Every wave player is allied with every
+ * other one, and with the map's scavengers - they are scavenger units too, so
+ * a stray scavenger patrol should not pick a fight with the waves.
+ *
+ * setAlliance() applies regardless of the game's alliance setting, so this also
+ * works in No Alliances and Locked Teams games.
+ *
+ * @param {number[]} horde
+ */
+function allyHorde(horde)
+{
+	for (let i = 0; i < horde.length; i++)
+	{
+		for (let j = i + 1; j < horde.length; j++)
+		{
+			setAlliance(horde[i], horde[j], true);
+		}
+	}
 }
 
 /**

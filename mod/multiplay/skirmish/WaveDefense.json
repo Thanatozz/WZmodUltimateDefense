@@ -1,7 +1,7 @@
 {
 	"AI": {
 		"js": "WaveDefense.js",
-		"name": "Wave Defense",
-		"tip": "Sends waves of units at your command center"
+		"name": "Wave Defense - Base",
+		"tip": "Waves come in from this slot's own start position"
 	}
 }
