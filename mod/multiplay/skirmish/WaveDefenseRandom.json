@@ -1,0 +1,7 @@
+{
+	"AI": {
+		"js": "WaveDefenseRandom.js",
+		"name": "Wave Defense - Random",
+		"tip": "Waves come in from one random edge each round"
+	}
+}

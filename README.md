@@ -1,32 +1,64 @@
-# Tower Defense Mod
+# Ultimate Defense
 - Protect your command center!
-- Scavengers spawn on the edges of the map
-- Earn power by destroying scavengers
-- The power level (Low/Medium/High) controls how much power is earned
-- VTOL factories are disabled
-- The mod works on any map, with any number of players
+- Pick a **Wave Defense** AI in the lobby - it sends the waves
+- Its lobby difficulty sets how big they are (Easy 0.7x to Insane 2x like normal AI difficulty)
+- Rounds are generated
+- Works on any map, with any number of players and other AIs
+
+A fork of [WZmodTowerDefense](https://github.com/aco4/WZmodTowerDefense).
+
+## Wave Defense AIs
+Pick one per slot. You can use several at once and different types - they ally with each other and
+with the map's scavengers automatically.
+
+| AI | Waves arrive |
+| --- | --- |
+| **Base** | Around that slot's start position |
+| **Surround** | From every edge of the map |
+| **Random** | From one random edge, re-rolled each round |
+| **Center** | From the middle of the map |
+
+![Waves Settings](https://raw.githubusercontent.com/Thanatozz/WZmodUltimateDefense/ultimate-defense/waves.png)
+
+**Meteor** drops a whole round on one spot, with a beacon warning. Off by
+default; rename `multiplay/skirmish/WaveDefenseMeteor.json.disabled` to `.json`.
+
+## Rounds
+Each round has a power budget and a tier window, and its units are drawn at run
+time from 213 designs classified by cost, weight, chassis and weapon family.
+
+- Tiers rise with the round, floor included, so late rounds cannot field junk
+- Split by weight: 50% light, 35% medium, 15% heavy
+- **Boss rounds** every 5th round
+- **One-weapon rounds** and **swarms** happen on a chance
+
+Losing your command center puts you out, and it cannot be rebuilt - but not
+until the first wave, so you can build one or move it. Walls and defences built
+on a spawn point of waves for base and center waves are refunded and removed, and the waves avoid tiles that
+defenders are parked on.
 
 ## Download
 1. Start Warzone 2100. Click **Options**
 2. Click "Open Configuration Directory"
-3. Download [`📦4p-td1_v3.wz`](https://maps.wz2100.net/#/map/4p/td1_v3/). Put in `📁maps/`
-4. Download [`📦TowerDefenseMod.zip`](https://github.com/aco4/WZmodTowerDefense/releases/latest). Put in `📁mods/4.6.1/autoload/`
-5. Restart Warzone 2100
-
-## Recommended Game Settings
-![Recommended Settings](https://raw.githubusercontent.com/aco4/WZmodTowerDefense/master/recommended_settings.png)
+4. Download the latest release `.wz`. Put in `📁mods/<version>/multiplay/` or `📁mods/<version>/autoload/`
+5. (for multiplay install) Launch with `--mod_mp=WZmodUltimateDefense.wz`
 
 ## Configuration
-Edit `📄config.js` to configure:
-- time between rounds
-- scavenger unit designs
-- etc.
+Edit `📄config.js`. To make the whole game harder or easier, change one line:
+
+```js
+budget: round => Math.round(350 * Math.pow(1.24, round - 1)),
+```
+
+Raise `350` for a harder start, raise `1.24` for a steeper climb. The rest of
+`generateWaves()` sets the tier curve, the weight split, and how often boss,
+one-weapon and swarm rounds come up.
 
 Tips:
-- To double the amount of scavengers, use a text editor to replace "`spawn(`" with "`spawn(2*`"
-- To halve the amount of scavengers, use a text editor to replace "`spawn(`" with "`spawn(0.5*`"
-- To double the amount of scavenger vipers, use a text editor to replace "`,vipers`" with "`*2,vipers`"
-- Read `multiplay/script/mods/configAPI.js` for documentation
+- `setBudgetVariance(0.15)` controls how much a round may drift from its budget
+- `setSpawnRate(5)` and `setSpawnRadius(8)` control how fast and how wide units arrive
+- `setNoBuildRadius(5)` and `setCampRadius(4)` control the anti-camping rules
+- Read `multiplay/script/mods/configAPI.js` for the full list of settings
 
 ## License
 SPDX-License-Identifier: GPL-2.0-or-later

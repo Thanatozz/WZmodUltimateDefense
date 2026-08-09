@@ -1,0 +1,7 @@
+{
+	"AI": {
+		"js": "WaveDefenseCenter.js",
+		"name": "Wave Defense - Center",
+		"tip": "Waves come in from the middle of the map"
+	}
+}

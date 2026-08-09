@@ -22,10 +22,12 @@ function checkGameOver() {
     }
 }
 
+// Only defenders can win or lose here. The wave player has no HQ by design, so
+// counting it would make it a permanent loser and skew the team bookkeeping.
 function getAliveOrDeadPlayers() {
     const alive = [];
     const dead = [];
-    for (let player = 0; player < maxPlayers; player++) {
+    for (const player of waveDefenders()) {
         if (isAlive(player)) {
             alive.push(player);
         } else {
@@ -36,17 +38,21 @@ function getAliveOrDeadPlayers() {
 }
 
 function getAliveOrDeadTeams() {
+    const defenders = waveDefenders();
+
     const alive = [];
-    for (const [player, data] of playerData.entries()) {
-        if (!alive.includes(data.team) && isAlive(player)) {
-            alive.push(data.team);
+    for (const player of defenders) {
+        const team = playerData[player].team;
+        if (!alive.includes(team) && isAlive(player)) {
+            alive.push(team);
         }
     }
 
     const dead = [];
-    for (const [player, data] of playerData.entries()) {
-        if (!alive.includes(data.team) && !dead.includes(data.team)) {
-            dead.push(data.team);
+    for (const player of defenders) {
+        const team = playerData[player].team;
+        if (!alive.includes(team) && !dead.includes(team)) {
+            dead.push(team);
         }
     }
 
@@ -72,8 +78,8 @@ function finalizePlayer(player, win) {
  * @param {boolean} win
  */
 function finalizeTeam(team, win) {
-    for (const [player, data] of playerData.entries()) {
-        if (data.team == team) {
+    for (const player of waveDefenders()) {
+        if (playerData[player].team == team) {
             finalizePlayer(player, win);
         }
     }
@@ -89,11 +95,17 @@ function isFFA() {
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+// Before the first wave, nobody is out for lacking an HQ: that window is what
+// lets a player build their first one, or demolish theirs and move it.
 function isAlive(player) {
-    return enumStruct(player, HQ).length > 0;
+    return !hqGraceOver || enumStruct(player, HQ).length > 0;
 }
 
 function isGameOver(alive, dead) {
     return alive.length <= 0
-        || (index >= actions.length && Spawner.queue.length == 0 && countDroid(DROID_ANY, scavAI) == 0);
+        || (index >= actions.length && Spawner.queue.length == 0 && hordeIsWipedOut());
+}
+
+function hordeIsWipedOut() {
+    return wavePlayers.every(player => countDroid(DROID_ANY, player) == 0);
 }

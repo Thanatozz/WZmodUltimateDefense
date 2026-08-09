@@ -1,0 +1,7 @@
+{
+	"AI": {
+		"js": "WaveDefenseSurround.js",
+		"name": "Wave Defense - Surround",
+		"tip": "Waves come in from every edge of the map"
+	}
+}

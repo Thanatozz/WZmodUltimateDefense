@@ -1,0 +1,7 @@
+{
+	"AI": {
+		"js": "WaveDefenseMeteor.js",
+		"name": "Wave Defense - Meteor",
+		"tip": "Each round the whole horde drops on one random spot, away from the defenders"
+	}
+}
