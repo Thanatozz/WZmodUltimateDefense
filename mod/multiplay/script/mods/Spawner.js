@@ -32,6 +32,7 @@ class Spawner
 	static rank = 0;
 
 	static readyAt = {};   // player -> gameTime before which it may not spawn
+	static bossDrops = {}; // droid id -> the component it leaves as a crate
 
 	// Tunables, see configAPI.js
 	static rate = 5;               // units released per tick
@@ -89,6 +90,12 @@ class Spawner
 			// Most units take the round's rank; a boss carries its own.
 			const rank = entry.rank !== undefined ? entry.rank : Spawner.rank;
 			setDroidExperience(droid, Stats.Brain["Z NULL BRAIN"].RankThresholds[rank]);
+
+			// Remember which of its own parts a boss will leave behind
+			if (entry.rank !== undefined && droid)
+			{
+				Spawner.bossDrops[droid.id] = Spawner.pickComponent(entry.template);
+			}
 		}
 
 		return batch.length;
@@ -187,6 +194,21 @@ class Spawner
 	 * An empty array means "already looked, found nothing" - do not rescan, or
 	 * a map with no usable tiles would redo the whole search for every unit.
 	 */
+	/**
+	 * One of the parts a design is built from, for a boss to drop.
+	 *
+	 * Its own body, propulsion or one of its guns - so the crate is a piece of
+	 * the thing that just killed you, not a random reward.
+	 *
+	 * @param {object} template
+	 * @returns {string} a component name
+	 */
+	static pickComponent(template)
+	{
+		const parts = template.turrets.concat([template.body, template.propulsion]);
+		return parts[syncRandom(parts.length)];
+	}
+
 	static locationsFor(player)
 	{
 		if (Spawner.locations[player] === undefined)

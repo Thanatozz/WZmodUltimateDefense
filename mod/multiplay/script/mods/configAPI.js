@@ -225,6 +225,78 @@ function setEliminateOnHQLoss(enabled)
 }
 
 /**
+ * How far a dying Command Center clears the ground of units, in tiles.
+ *
+ * It takes everyone's units, not just the owner's, so the wave that broke
+ * through dies in the blast too. Without it a horde rolls out of one ruined base
+ * into the next at full strength and a team falls like dominoes.
+ *
+ * 0 disables the blast.
+ *
+ * @param {number} tiles
+ */
+function setHQBlastRadius(tiles)
+{
+	hqBlastRadius = tiles;
+}
+
+/**
+ * Milliseconds between the rings of that blast.
+ *
+ * It travels outwards a tile at a time rather than going off at once, so this
+ * is how fast the shockwave moves. At radius 6 and 150ms a step it takes just
+ * under a second to reach the edge.
+ *
+ * @param {number} ms
+ */
+function setHQBlastStep(ms)
+{
+	hqBlastStepMs = ms;
+}
+
+/**
+ * A weapon fired along each ring of the blast, for the look of it.
+ *
+ * Off by default. Without one the shockwave is only visible where it catches
+ * units, since what you see is those units blowing up - a ring crossing empty
+ * ground shows nothing at all.
+ *
+ * Be aware this is a real weapon doing real damage to whatever is still
+ * standing nearby, a neighbour's buildings included. The units in the blast are
+ * already removed outright, so it adds nothing but spectacle and side effects.
+ *
+ * @param {string|null} weapon
+ */
+function setHQBlastWeapon(weapon)
+{
+	hqBlastWeapon = weapon;
+}
+
+/**
+ * Whether a dead boss leaves a crate holding one of its own components, which
+ * becomes buildable for whoever picks it up. One crate per round.
+ *
+ * @param {boolean} enabled
+ */
+function setBossCrates(enabled)
+{
+	bossCrates = enabled;
+}
+
+/**
+ * How many spawn tiles to try before giving up and coming in anyway.
+ *
+ * Raise it if defenders can cover enough of a spawn area to make camping work
+ * again; every try costs a lookup of what is standing nearby.
+ *
+ * @param {number} tries
+ */
+function setCampTries(tries)
+{
+	Spawner.campTries = tries;
+}
+
+/**
  * How much the difficulty picked for a Wave Defense slot in the lobby changes
  * the size of every round. Defaults mirror the base game's AI power modifiers.
  *

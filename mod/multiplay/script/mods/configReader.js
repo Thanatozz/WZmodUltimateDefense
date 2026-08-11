@@ -1,5 +1,43 @@
+/**
+ * Hand over to the next action, and record when that is due.
+ *
+ * Everything goes through here so the watchdog can tell a reader that is waiting
+ * on purpose from one that has stopped.
+ *
+ * @param {number} delayMs
+ */
+function scheduleNext(delayMs)
+{
+	nextDueAt = gameTime + delayMs;
+	queue("next", delayMs);
+}
+
+/**
+ * Restart the reader if it missed its slot.
+ *
+ * A script error inside an action leaves queue() with nothing pending and
+ * nothing to report: the round timer sticks and the game sits there forever.
+ * Losing one action beats losing the game.
+ */
+function watchdog()
+{
+	if (index >= actions.length || nextDueAt === null)
+	{
+		return;
+	}
+
+	if (gameTime > nextDueAt + 10000)
+	{
+		console("Wave Defense: WARNING - the round reader stalled at action "
+			+ index + "/" + actions.length + ", restarting it");
+		scheduleNext(0);
+	}
+}
+
 function next()
 {
+	nextDueAt = null;
+
 	if (index < actions.length)
 	{
 		const action = actions[index++];
@@ -35,8 +73,9 @@ function processRound(action)
 	Spawner.newRound(); // re-roll the random and meteor spawn points
 	checkHQGrace(action.round); // no more free rebuilds once the waves start
 	rollRoundFlavour(action.tierFloor);
+	crateDroppedThisRound = false;
 	playSound("pcv373.ogg"); // "Scavengers detected"
-	queue("next");
+	scheduleNext(0);
 }
 
 function processWait(action)
@@ -44,7 +83,7 @@ function processWait(action)
 	if (action.seconds > 10) {
 		setMissionTime(action.seconds);
 	}
-	queue("next", action.seconds * 1000);
+	scheduleNext(action.seconds * 1000);
 }
 
 function processSpawn(action)
@@ -67,7 +106,7 @@ function processSpawn(action)
 		});
 	}
 
-	queue("next");
+	scheduleNext(0);
 }
 
 /**
@@ -81,7 +120,7 @@ function processSpawnBudget(action)
 	const templates = resolvePool(action.templatePool);
 	if (templates.length === 0)
 	{
-		queue("next");
+		scheduleNext(0);
 		return;
 	}
 
@@ -116,7 +155,7 @@ function processSpawnBudget(action)
 		return batch;
 	});
 
-	queue("next");
+	scheduleNext(0);
 }
 
 /**
@@ -126,10 +165,14 @@ function processSpawnBudget(action)
  * flamer ones" every time. Boss rounds are not rolled: they stay on their own
  * schedule so the game has a rhythm you can learn.
  */
-function rollRoundFlavour()
+function rollRoundFlavour(tierFloor)
 {
 	roundFlavour = "normal";
 	roundFamily = null;
+
+	// There is nothing below tier 0, so an early round cannot swarm. Announcing
+	// one that changes nothing is worse than not rolling it at all.
+	const canSwarm = tierFloor === undefined || tierFloor >= swarmTierShift;
 
 	// Roll swarm first: a swarm of one weapon family would be two surprises at
 	// once, and the round would read as neither.
@@ -166,7 +209,7 @@ function processSpawnWave(action)
 	let pool = catalogueFor(action);
 	if (pool.length === 0)
 	{
-		queue("next");
+		scheduleNext(0);
 		return;
 	}
 
@@ -195,7 +238,7 @@ function processSpawnWave(action)
 		return batch;
 	});
 
-	queue("next");
+	scheduleNext(0);
 }
 
 /**

@@ -233,6 +233,31 @@ function allyHorde(horde)
 }
 
 /**
+ * Make the horde hostile to every defender, whatever the lobby said.
+ *
+ * There is no API to move a player to another team, so a wave slot left on
+ * somebody's team starts the game allied to them - in Locked Teams the team IS
+ * the alliance. Its units then will not fire on the people they were spawned to
+ * attack, and the round never resolves.
+ *
+ * @param {number[]} horde
+ * @param {number[]} defenders
+ */
+function unallyDefenders(horde, defenders)
+{
+	for (const attacker of horde)
+	{
+		for (const defender of defenders)
+		{
+			if (allianceExistsBetween(attacker, defender))
+			{
+				setAlliance(attacker, defender, false);
+			}
+		}
+	}
+}
+
+/**
  * @param {number} player
  * @param {number} power - amount of power increase
  */

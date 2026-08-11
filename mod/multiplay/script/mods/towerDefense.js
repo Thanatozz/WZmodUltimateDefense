@@ -15,6 +15,10 @@ let monoChance = 0;
 let swarmChance = 0;
 let swarmTierShift = 1;
 let eliminateOnHQLoss = true; // an AI that loses its HQ is cleared off the map
+let hqBlastRadius = 6;     // tiles a dying HQ clears of units, everyone's, 0 to disable
+let hqBlastStepMs = 150;   // pause between rings of the shockwave
+let hqBlastWeapon = null;  // weapon fired along each ring for show, null for none
+let bossCrates = true;     // a dead boss leaves one of its components as salvage
 // Same shape as the base game's AI power modifiers in rules/setup/powermodifier.js
 let difficultyScale = { easy: 0.7, medium: 1.0, hard: 1.5, insane: 2.0 };
 
@@ -28,6 +32,10 @@ var hqGraceOver = false;
 // heavy shares of one round three different answers.
 var roundFlavour = "normal"; // "normal", "mono" or "swarm"
 var roundFamily = null;      // which weapon family a mono round settled on
+var nextDueAt = null;        // gameTime the reader is next expected to run, for the watchdog
+var crateContents = {};      // feature id -> the component that crate holds
+var crateDroppedThisRound = false;
+var blastRings = [];         // shockwave rings still to go off, from dying HQs
 var wavePlayers = getWavePlayers();
 // The one used where a single player is needed: the rules script only commands
 // units directly in the hack mode, which never has more than one wave player.
@@ -51,6 +59,7 @@ function td_eventStartLevel()
 		Spawner.modes[player] = waveSpawnMode(player);
 	}
 	allyHorde(hordePlayers());
+	unallyDefenders(hordePlayers(), waveDefenders());
 	unifyHordeColour(wavePlayers);
 	disableVTOL();
 	Spawner.players = wavePlayers;
@@ -68,6 +77,7 @@ function td_eventStartLevel()
 	next();
 
 	setTimer("updateResearch", 10 * 1000);
+	setTimer("watchdog", 5 * 1000);
 
 	if (IS_HACK) // HACK WARNING TODO
 	{
@@ -90,6 +100,72 @@ function td_eventDestroyed(object)
 		{
 			addPower(player, powerRewardFunction(object.cost));
 		}
+
+		dropBossCrate(object);
+	}
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+// Boss salvage                                                               //
+//                                                                            //
+// A dead boss leaves a crate holding one of its own parts. Pick it up with    //
+// any unit and that component becomes buildable - the reward for killing the  //
+// thing is the thing itself.                                                  //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * @param {object} object - the wave unit that was destroyed
+ */
+function dropBossCrate(object)
+{
+	const component = Spawner.bossDrops[object.id];
+	if (!bossCrates || component === undefined)
+	{
+		return;
+	}
+
+	delete Spawner.bossDrops[object.id];
+
+	// One crate a round. An early boss round fields ten of them, and ten crates
+	// is not a reward, it is litter - and addFeature refuses a tile that already
+	// holds one, which is where they would all land.
+	if (crateDroppedThisRound)
+	{
+		return;
+	}
+	crateDroppedThisRound = true;
+
+	hackNetOff();
+	const crate = addFeature("Crate", object.x, object.y);
+	hackNetOn();
+
+	if (crate)
+	{
+		crateContents[crate.id] = component;
+		console(_("The boss dropped salvage"));
+	}
+}
+
+namespace("salvage_");
+
+function salvage_eventPickup(feature, droid)
+{
+	const component = crateContents[feature.id];
+	if (component === undefined)
+	{
+		return;
+	}
+
+	delete crateContents[feature.id];
+
+	makeComponentAvailable(component, droid.player);
+
+	if (droid.player === selectedPlayer)
+	{
+		console(_("Salvaged: ") + component);
 	}
 }
 
@@ -299,7 +375,110 @@ function disableRebuildHQ_eventDestroyed(object)
 	if (object.type === STRUCTURE && object.stattype === HQ && hqGraceOver)
 	{
 		setStructureLimits("A0CommandCentre", 0, object.player);
+		hqBlast(object.x, object.y);
 		eliminateIfHQLost(object.player);
+	}
+}
+
+/**
+ * A dying Command Center takes everything around it with it.
+ *
+ * Everything, not just the owner's: the wave that just broke through dies in the
+ * blast as well. Without that, a horde rolls out of one ruined base straight
+ * into the next one with its numbers intact, and a team falls like dominoes off
+ * a single lost HQ.
+ *
+ * It goes off as a shockwave rather than all at once - one tile, then two, out
+ * to the full radius - so it reads as something travelling outwards instead of
+ * a ring of units vanishing together.
+ *
+ * @param {number} x - tile coordinate
+ * @param {number} y - tile coordinate
+ */
+function hqBlast(x, y)
+{
+	if (hqBlastRadius <= 0)
+	{
+		return;
+	}
+
+	const idle = blastRings.length === 0;
+
+	for (let radius = 1; radius <= hqBlastRadius; radius++)
+	{
+		blastRings.push({ x: x, y: y, radius: radius });
+	}
+
+	// Two HQs can fall at once; only one chain of steps should be running.
+	if (idle)
+	{
+		hqBlastStep();
+	}
+}
+
+/**
+ * Set off the next ring of a shockwave.
+ *
+ * Each ring simply clears everything inside its radius: whatever was closer in
+ * went up with an earlier ring and is already gone, so there is no need to work
+ * out which band a unit falls in.
+ */
+function hqBlastStep()
+{
+	const ring = blastRings.shift();
+	if (ring === undefined)
+	{
+		return;
+	}
+
+	// The units blow up with their own destruction effects, which is most of the
+	// look. A ring that catches nothing shows nothing, so an optional weapon can
+	// be fired along it to make the wave visible over empty ground.
+	fireBlastRing(ring);
+
+	hackNetOff();
+	// seen = false, or clients would disagree about who was in range
+	for (const object of enumRange(ring.x, ring.y, ring.radius, ALL_PLAYERS, false))
+	{
+		if (object.type === DROID)
+		{
+			removeObject(object, true); // with effects: this one is an explosion
+		}
+	}
+	hackNetOn();
+
+	if (blastRings.length > 0)
+	{
+		queue("hqBlastStep", hqBlastStepMs);
+	}
+}
+
+/**
+ * Fire the blast weapon at four points around a ring, for the look of it.
+ *
+ * Off unless a weapon is set, because a real weapon does real damage: anything
+ * still standing near the dead HQ, including a neighbour's buildings, takes it.
+ * The units are already removed outright, so this is purely what it looks like.
+ *
+ * @param {object} ring
+ */
+function fireBlastRing(ring)
+{
+	if (hqBlastWeapon === null)
+	{
+		return;
+	}
+
+	const points = [
+		[ring.x + ring.radius, ring.y],
+		[ring.x - ring.radius, ring.y],
+		[ring.x, ring.y + ring.radius],
+		[ring.x, ring.y - ring.radius],
+	];
+
+	for (const [x, y] of points)
+	{
+		fireWeaponAtLoc(hqBlastWeapon, x, y);
 	}
 }
 
