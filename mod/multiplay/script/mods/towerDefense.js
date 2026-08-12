@@ -19,6 +19,16 @@ let hqBlastRadius = 6;     // tiles a dying HQ clears of units, everyone's, 0 to
 let hqBlastStepMs = 150;   // pause between rings of the shockwave
 let hqBlastWeapon = null;  // weapon fired along each ring for show, null for none
 let bossCrates = true;     // a dead boss leaves one of its components as salvage
+let dropPodEnabled = false; // a Drop Pod slot plays as Base unless this is on
+let vtolsDisabled = true;  // VTOL factories locked to zero, for everyone
+let chatCommands = true;   // player 1 announces and may adjust the settings in chat
+let externalSettingsEnabled = false; // read ultimatedefense.json outside the mod
+let configWindowSeconds = 60; // how long those commands are accepted for
+let budgetMultiplier = 1;  // set by "!ud waves", scales every round's budget
+// Build time before the first wave, by lobby base setting, plus what the wave
+// slots' difficulty adds on top. See startTime() in configAPI.js.
+let startTimes = { clean: 360, base: 240, advanced: 120 };
+let timeBonus = { easy: 0, medium: 0, hard: 30, insane: 60 };
 // Same shape as the base game's AI power modifiers in rules/setup/powermodifier.js
 let difficultyScale = { easy: 0.7, medium: 1.0, hard: 1.5, insane: 2.0 };
 
@@ -35,7 +45,23 @@ var roundFamily = null;      // which weapon family a mono round settled on
 var nextDueAt = null;        // gameTime the reader is next expected to run, for the watchdog
 var crateContents = {};      // feature id -> the component that crate holds
 var crateDroppedThisRound = false;
+// A configuration arriving over the sync channel, held until the commit so that
+// every client changes on one tick instead of drifting apart mid-transfer.
+var syncPending = {};        // key -> value, waiting to be applied
+var syncChassis = [];        // the boss curve, collected one body at a time
 var blastRings = [];         // shockwave rings still to go off, from dying HQs
+// Every setting currently in force, as data. config.js fills it in, and a
+// preset is compared against it so only the differences are sent.
+var liveSettings = {};
+// What config.js left behind, kept so an export can say only what was changed
+// rather than restate a whole game everyone already has.
+var defaultSettings = null;
+// Read from player 1's settings file and sent over chat, never applied directly:
+// applying them on one machine only is how a game comes apart.
+var externalPreset = null;
+var externalWaves = null;
+var externalCrates = null;
+var externalDropPods = null;
 var wavePlayers = getWavePlayers();
 // The one used where a single player is needed: the rules script only commands
 // units directly in the hack mode, which never has more than one wave player.
@@ -55,9 +81,20 @@ function td_eventStartLevel()
 
 	for (const player of wavePlayers)
 	{
-		clearWavePlayer(player);
-		Spawner.modes[player] = waveSpawnMode(player);
+		Spawner.modes[player] = resolveSpawnMode(player);
 	}
+
+	// Taking the horde's starting base away is left for a moment rather than done
+	// here. The removal is local to each machine - nothing about it travels - so
+	// it is only safe while every machine does it at the same tick, and
+	// eventStartLevel is not that moment: the host is already running when a
+	// joining client is still being handed its starting units, so the host was
+	// deleting the horde's two trucks in the same tick the client was still
+	// creating things. Same end state, different order, and the game refuses a
+	// client whose first tick does not match. Half a second in, everybody has
+	// finished setting up and agrees on what is on the map.
+	queue("clearWavePlayers", 500);
+
 	allyHorde(hordePlayers());
 	unallyDefenders(hordePlayers(), waveDefenders());
 	unifyHordeColour(wavePlayers);
@@ -73,8 +110,11 @@ function td_eventStartLevel()
 	printWaveSetup();
 	hqGraceReminder();
 
-	// Start the config reader
-	next();
+	// Hold the reader until the settings window has closed. A preset arriving
+	// over chat rebuilds the whole round list, and doing that while the reader
+	// is already walking it means restarting something mid-stride; waiting costs
+	// half a minute of build time and removes the problem entirely.
+	scheduleNext(configWindowSeconds * 1000);
 
 	setTimer("updateResearch", 10 * 1000);
 	setTimer("watchdog", 5 * 1000);
@@ -82,6 +122,18 @@ function td_eventStartLevel()
 	if (IS_HACK) // HACK WARNING TODO
 	{
 		setTimer("updateOrders", 1000);
+	}
+}
+
+/**
+ * Take the horde's starting base away, once everybody has finished being given
+ * one. Queued from eventStartLevel rather than run there - see the note above.
+ */
+function clearWavePlayers()
+{
+	for (const player of wavePlayers)
+	{
+		clearWavePlayer(player);
 	}
 }
 
@@ -138,6 +190,23 @@ function dropBossCrate(object)
 	}
 	crateDroppedThisRound = true;
 
+	// addFeature() is documented as "will cause a desync in multiplayer", and it
+	// does: the crate is placed on each machine on its own and the two stop
+	// agreeing about what is on the map. So online the salvage is handed straight
+	// to the people defending, which is the same reward without the object.
+	//
+	// Offline the crate still drops, because picking it up is the better version
+	// of this - you have to go and get it, which means leaving your towers.
+	if (isMultiplayer)
+	{
+		for (const player of waveDefenders())
+		{
+			makeComponentAvailable(component, player);
+		}
+		console(_("Salvaged from the boss: ") + component);
+		return;
+	}
+
 	hackNetOff();
 	const crate = addFeature("Crate", object.x, object.y);
 	hackNetOn();
@@ -183,7 +252,7 @@ function printWaveSetup()
 		{
 			return "scavengers";
 		}
-		return playerData[player].name + " (" + player + ")";
+		return playerName(player) + " (" + player + ")";
 	};
 
 	const describeAttacker = player =>
@@ -431,12 +500,17 @@ function hqBlastStep()
 		return;
 	}
 
+	hackNetOff();
+
 	// The units blow up with their own destruction effects, which is most of the
 	// look. A ring that catches nothing shows nothing, so an optional weapon can
 	// be fired along it to make the wave visible over empty ground.
+	//
+	// Inside the local block with everything else: every machine runs this handler,
+	// so a shot that travelled over the network would be fired once per player in
+	// the game. Fired locally it happens exactly once on each screen.
 	fireBlastRing(ring);
 
-	hackNetOff();
 	// seen = false, or clients would disagree about who was in range
 	for (const object of enumRange(ring.x, ring.y, ring.radius, ALL_PLAYERS, false))
 	{
@@ -504,11 +578,19 @@ function eliminateIfHQLost(player)
 
 	console(playerData[player].name + " has lost their Command Center");
 
-	// Humans are left alone: endconditions.js already turns them into a
-	// spectator, and pulling an army out from under someone mid-game reads as a
-	// crash rather than a rule.
+	// Out now, not when the last HQ on the map falls. Waiting for that meant a
+	// player whose base was gone kept playing with an army and no way to win,
+	// and only saw the defeat screen once their team mates had gone too.
 	if (playerData[player].isHuman)
 	{
+		if (player === selectedPlayer)
+		{
+			gameOverMessage(false);
+		}
+		if (!isSpectator(player))
+		{
+			transformPlayerToSpectator(player);
+		}
 		return;
 	}
 

@@ -1,0 +1,168 @@
+{
+	"//": "Every setting there is, at its default value. Copy this file, rename it,",
+	"//2": "change what you want and load it with '!ud play <name>'. Only the lines",
+	"//3": "that differ from the running game are sent to the other players, so you",
+	"//4": "can leave the rest alone or delete them - either way they change nothing.",
+	"//5": "JSON has no comments, so the notes are '//' keys. The mod ignores them.",
+
+	"//waves": "How the rounds themselves are built.",
+	"waves": {
+		"//rounds": "How many rounds the game lasts.",
+		"rounds": 30,
+
+		"//budget": "Round n is worth budgetStart * budgetGrowth^(n-1). This is THE",
+		"//budget2": "difficulty dial: the first for a harder start, the second for a",
+		"//budget3": "steeper climb.",
+		"budgetStart": 350,
+		"budgetGrowth": 1.24,
+
+		"//wait": "Seconds of build time between rounds, and a longer breather every",
+		"//wait2": "so many. Round 1 is not from here - see startTimes below.",
+		"waitNormal": 150,
+		"waitBreather": 240,
+		"breatherEvery": 10,
+
+		"//tier": "A tier every this many rounds, 0 (scavengers) to 5 (Dragons). The",
+		"//tier2": "floor rises with the top, which is what stops a late round buying",
+		"//tier3": "machinegun Vipers. tierSpread is how far below the top a round",
+		"//tier4": "still reaches: 1 keeps the last generation as chaff, 0 cuts clean.",
+		"roundsPerTier": 5,
+		"tierSpread": 1,
+
+		"//composition": "How a round's budget splits by weight. Without this the budget",
+		"//composition2": "chases the cheapest design and round one is 150 scavengers.",
+		"//composition3": "Weight compares across scavengers, cyborgs and tanks, so this",
+		"//composition4": "reads the same in round 1 and in round 25.",
+		"composition": { "light": 0.50, "medium": 0.35, "heavy": 0.15 },
+
+		"//special": "Odds a round arrives as one weapon family only - a flamer wave, a",
+		"//special2": "cannon wave - so it can be countered on purpose.",
+		"special": { "chance": 0.25 },
+
+		"//swarm": "Odds of a swarm: the tier below in far greater numbers. No extra",
+		"//swarm2": "budget needed, since a tier down costs roughly half.",
+		"swarm": { "chance": 0.20, "tierShift": 1 },
+
+		"//boss": "A boss is a chassis, not a price: cost ranges overlap far too much",
+		"//boss2": "to say 'Tiger at 15' with a number. The count falls as the game",
+		"//boss3": "goes on - countStart minus the round over countDecline - because",
+		"//boss4": "one Viper at round 5 decides nothing and three Dragons at 30 are",
+		"//boss5": "plenty. untilRound is the last round that chassis is used for.",
+		"boss": {
+			"every": 5,
+			"countStart": 12,
+			"countDecline": 3,
+			"chassis": [
+				{ "untilRound": 5, "bodies": ["Viper"] },
+				{ "untilRound": 10, "bodies": ["Python"] },
+				{ "untilRound": 15, "bodies": ["Tiger", "Leopard"] },
+				{ "untilRound": 20, "bodies": ["Vengeance"] },
+				{ "untilRound": 25, "bodies": ["Wyvern"] },
+				{ "untilRound": 99, "bodies": ["Dragon"] }
+			]
+		}
+	},
+
+	"//budgetVariance": "How far a round may drift from its stated budget, as a fraction.",
+	"budgetVariance": 0.15,
+
+	"//waveScale": "A multiplier on every round, on top of everything above. Apart from",
+	"//waveScale2": "the waves block on purpose: that is how rounds are built, this is",
+	"//waveScale3": "what they are worth. Also settable in chat with '!ud scale 1.5'.",
+	"waveScale": 1.0,
+
+	"//waveSplit": "With several Wave Defense slots: false means each sends the whole",
+	"//waveSplit2": "round, true means they divide it. Either way each slot's own lobby",
+	"//waveSplit3": "difficulty still scales its share.",
+	"waveSplit": false,
+
+	"//difficultyScale": "What the lobby difficulties are worth. Same shape the base game",
+	"//difficultyScale2": "uses for AI power. Each wave slot uses its own.",
+	"difficultyScale": { "easy": 0.7, "medium": 1.0, "hard": 1.5, "insane": 2.0 },
+
+	"//startTimes": "Seconds before the FIRST wave, by the lobby's base setting. How",
+	"//startTimes2": "long you need depends on what you were given: starting with",
+	"//startTimes3": "nothing means a truck, a derrick, a generator and a factory before",
+	"//startTimes4": "the first tower even begins.",
+	"startTimes": { "clean": 360, "base": 240, "advanced": 120 },
+
+	"//difficultyTimeBonus": "Extra seconds on that first round from the wave slots'",
+	"//difficultyTimeBonus2": "difficulty. A harder setting sends a bigger first wave, so it",
+	"//difficultyTimeBonus3": "also buys more time to meet it. The hardest slot decides.",
+	"difficultyTimeBonus": { "easy": 0, "medium": 0, "hard": 30, "insane": 60 },
+
+	"//spawnRate": "Units released per tick. One at a time let defenders pick a round",
+	"//spawnRate2": "apart as it appeared rather than face a wave.",
+	"spawnRate": 5,
+
+	"//spawnRadius": "How wide the Base and Center spawn areas are, in tiles. A wide",
+	"//spawnRadius2": "area matters as much as a fast rate: units all appearing on the",
+	"//spawnRadius3": "same few tiles are killed as they arrive however fast they come.",
+	"spawnRadius": 8,
+
+	"//dropPods": "Whether the Drop Pod mode works. Its entry always shows in the lobby",
+	"//dropPods2": "- Warzone builds that list from files before any script runs - but",
+	"//dropPods3": "with this off a slot picked as Drop Pod plays as Base instead.",
+	"//dropPods4": "Distance is how far it must land from every HQ, burst is units per",
+	"//dropPods5": "tick, warning is how long its beacon shows first.",
+	"dropPods": false,
+	"dropPodDistance": 20,
+	"dropPodBurst": 25,
+	"dropPodWarning": 10,
+
+	"//vtolsDisabled": "VTOL factories locked to zero. This applies to the defenders too,",
+	"//vtolsDisabled2": "not just the horde - it is a ground game by design. The waves",
+	"//vtolsDisabled3": "never fly either way: flying designs are filtered out of the",
+	"//vtolsDisabled4": "catalogue when it is generated.",
+	"vtolsDisabled": true,
+
+	"//noBuildRadius": "How close to a spawn point a defender may put walls, gates and",
+	"//noBuildRadius2": "defences, in tiles. Anything built inside is refunded and removed.",
+	"//noBuildRadius3": "0 disables it. With Base it is a bubble around the enemy start;",
+	"//noBuildRadius4": "with Surround it is a ring around the whole edge of the map.",
+	"noBuildRadius": 5,
+
+	"//campRadius": "How close a defender's units have to be for a spawn tile to count",
+	"//campRadius2": "as camped, and how many tiles to try before coming in anyway.",
+	"//campRadius3": "Nothing is destroyed and nobody is warned: parking an army on the",
+	"//campRadius4": "spawn point simply stops working.",
+	"campRadius": 4,
+	"campTries": 6,
+
+	"//hqGraceUntilRound": "Until which round a player may be without a Command Center.",
+	"//hqGraceUntilRound2": "The grace period is what lets you start with nothing and build",
+	"//hqGraceUntilRound3": "one, or move an existing one. 0 removes it entirely.",
+	"hqGraceUntilRound": 1,
+
+	"//grantHQToAI": "Whether an AI that reaches the end of the grace period without one",
+	"//grantHQToAI2": "is given a Command Center rather than knocked out. It had no way to",
+	"//grantHQToAI3": "know it was on a clock, unlike a human, who was told in the console.",
+	"grantHQToAI": true,
+
+	"//eliminateOnHQLoss": "Whether an AI defender that loses its Command Center is cleared",
+	"//eliminateOnHQLoss2": "off the map. Without it the rule only really applies to humans.",
+	"eliminateOnHQLoss": true,
+
+	"//hqBlast": "A dying Command Center clears units within this radius - everyone's,",
+	"//hqBlast2": "so the wave that broke through dies in the blast too. Without that a",
+	"//hqBlast3": "horde rolls into the next base at full strength and a team falls like",
+	"//hqBlast4": "dominoes. It travels outwards a tile at a time, hqBlastStep apart.",
+	"hqBlastRadius": 6,
+	"hqBlastStep": 150,
+
+	"//hqBlastWeapon": "A weapon fired along each ring, purely for the look of it - without",
+	"//hqBlastWeapon2": "one the blast is only visible where it catches units. It is a real",
+	"//hqBlastWeapon3": "weapon doing real damage to whatever is still standing nearby, a",
+	"//hqBlastWeapon4": "neighbour's buildings included. Example: 'Mortar3ROTARYMk1'.",
+	"hqBlastWeapon": null,
+
+	"//bossCrates": "Whether a dead boss leaves a crate holding one of its own",
+	"//bossCrates2": "components, which becomes buildable for whoever picks it up.",
+	"//bossCrates3": "One crate per round.",
+	"bossCrates": true,
+
+	"//researchDelay": "Seconds to hold the horde's research behind the schedule it would",
+	"//researchDelay2": "otherwise follow. It gets its upgrades by the clock, not from",
+	"//researchDelay3": "laboratories, so this decides how far ahead of you its units are.",
+	"researchDelay": 360
+}

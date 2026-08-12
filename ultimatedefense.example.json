@@ -1,0 +1,6 @@
+{
+	"preset": "longdefense",
+	"waveScale": 1.0,
+	"crates": true,
+	"droppods": false
+}

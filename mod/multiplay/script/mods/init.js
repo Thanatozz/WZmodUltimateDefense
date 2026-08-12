@@ -10,4 +10,6 @@ include("multiplay/script/mods/Spawner.js");
 include("multiplay/script/mods/towerDefense.js");
 include("multiplay/script/mods/configAPI.js");
 include("multiplay/script/mods/configReader.js");
+include("multiplay/script/mods/Presets.js");
+include("multiplay/script/mods/ChatCommands.js");
 include("config.js");

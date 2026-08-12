@@ -21,9 +21,21 @@ function waveMe()
 
 function waveRandom(n)
 {
-	// syncRandom(), not Math.random(): AI scripts run on every client, and two
-	// clients picking different targets would desync the game.
-	return syncRandom(n);
+	// Math.random(), and it has to be. syncRandom() draws from a sequence shared
+	// by every machine in the game, and the manual is explicit about what that
+	// means here: "If it is called on just one peer (such as would be the case
+	// for AIs, for instance), then game sync will break."
+	//
+	// An AI script is exactly that one peer. This ran once a second, so the host
+	// pulled a number out of the shared sequence every second and nobody else
+	// did - the two ends were reading different numbers within a minute. It only
+	// became visible when the first wave arrived and there were units to command,
+	// which is why the game always came apart at the same moment.
+	//
+	// Deciding locally is safe because the orders themselves travel: this script
+	// runs on one machine, and the move and attack orders it issues go out over
+	// the network like any other player's.
+	return Math.floor(Math.random() * n);
 }
 
 function hordePlayers()

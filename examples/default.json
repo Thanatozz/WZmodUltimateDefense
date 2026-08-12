@@ -1,0 +1,58 @@
+{
+	"waves": {
+		"rounds": 30,
+		"budgetStart": 350,
+		"budgetGrowth": 1.24,
+		"waitNormal": 150,
+		"waitBreather": 240,
+		"breatherEvery": 10,
+		"roundsPerTier": 5,
+		"tierSpread": 1,
+		"composition": { "light": 0.50, "medium": 0.35, "heavy": 0.15 },
+		"special": { "chance": 0.25 },
+		"swarm": { "chance": 0.20, "tierShift": 1 },
+		"boss": {
+			"every": 5,
+			"countStart": 12,
+			"countDecline": 3,
+			"chassis": [
+				{ "untilRound": 5, "bodies": ["Viper"] },
+				{ "untilRound": 10, "bodies": ["Python"] },
+				{ "untilRound": 15, "bodies": ["Tiger", "Leopard"] },
+				{ "untilRound": 20, "bodies": ["Vengeance"] },
+				{ "untilRound": 25, "bodies": ["Wyvern"] },
+				{ "untilRound": 99, "bodies": ["Dragon"] }
+			]
+		}
+	},
+
+	"budgetVariance": 0.15,
+	"waveScale": 1.0,
+	"waveSplit": false,
+	"difficultyScale": { "easy": 0.7, "medium": 1.0, "hard": 1.5, "insane": 2.0 },
+
+	"startTimes": { "clean": 360, "base": 240, "advanced": 120 },
+	"difficultyTimeBonus": { "easy": 0, "medium": 0, "hard": 30, "insane": 60 },
+
+	"spawnRate": 5,
+	"spawnRadius": 8,
+	"dropPods": false,
+	"dropPodDistance": 20,
+	"dropPodBurst": 25,
+	"dropPodWarning": 10,
+	"vtolsDisabled": true,
+
+	"noBuildRadius": 5,
+	"campRadius": 4,
+	"campTries": 6,
+
+	"hqGraceUntilRound": 1,
+	"grantHQToAI": true,
+	"eliminateOnHQLoss": true,
+	"hqBlastRadius": 6,
+	"hqBlastStep": 150,
+	"hqBlastWeapon": null,
+
+	"bossCrates": true,
+	"researchDelay": 360
+}

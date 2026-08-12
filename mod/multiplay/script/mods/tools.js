@@ -8,10 +8,38 @@
  */
 function clearWavePlayer(player)
 {
+	const structures = enumStruct(player);
+	const droids = enumDroid(player);
+
 	hackNetOff();
-	enumStruct(player).forEach(s => removeObject(s));
-	enumDroid(player).forEach(s => removeObject(s));
+	structures.forEach(s => removeObject(s));
+	droids.forEach(s => removeObject(s));
 	hackNetOn();
+
+	// Said out loud on every client, because this is done locally - hackNetOff
+	// means nothing here travels over the network, so it is only safe while every
+	// client removes exactly the same things. When two clients print different
+	// numbers here, that is a desync at the first tick, and this line is the
+	// difference between finding it in one game and finding it in five.
+	console("Wave Defense: cleared " + structures.length + " structures and "
+		+ droids.length + " units from " + playerName(player)
+		+ " (slot " + player + ")");
+}
+
+/**
+ * A player's name, safe for slot numbers with nothing behind them.
+ *
+ * The scavenger slot sits outside playerData, and it is a legitimate wave player
+ * - so anything that puts a wave player's name on screen has to come through
+ * here or it takes the whole script down with it.
+ *
+ * @param {number} player
+ * @returns {string}
+ */
+function playerName(player)
+{
+	const data = playerData[player];
+	return data !== undefined ? data.name : "Scavengers (" + player + ")";
 }
 
 /**
@@ -40,7 +68,7 @@ function getWavePlayers()
 	// exist in the first place.
 	for (let player = 0; player < maxPlayers; player++)
 	{
-		if (playerData[player].isAI)
+		if (playerData[player] !== undefined && playerData[player].isAI)
 		{
 			return [player]; // "false" scavs
 		}
@@ -270,10 +298,39 @@ function addPower(player, power)
 
 function disableVTOL()
 {
+	if (!vtolsDisabled)
+	{
+		return;
+	}
+
 	for (let player = 0; player < maxPlayers; player++)
 	{
 		setStructureLimits("A0VTolFactory1", 0, player);
 	}
+}
+
+/**
+ * The spawn mode a slot actually gets.
+ *
+ * The lobby's AI list is built from the .json files before any script runs, so
+ * config.js cannot add or remove an entry from it. What it can do is refuse the
+ * behaviour: with drop pods turned off, a slot picked as Drop Pod plays as Base.
+ *
+ * @param {number} player
+ * @returns {string}
+ */
+function resolveSpawnMode(player)
+{
+	const mode = waveSpawnMode(player);
+
+	if (mode === "droppod" && !dropPodEnabled)
+	{
+		console("Wave Defense: drop pods are off in this build, "
+			+ playerName(player) + " plays as Base");
+		return "base";
+	}
+
+	return mode;
 }
 
 /**

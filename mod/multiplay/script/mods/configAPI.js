@@ -8,6 +8,89 @@ function setResearchDelay(seconds)
 }
 
 /**
+ * Seconds of build time before the first wave, by the lobby's base setting.
+ *
+ * How long you need depends entirely on what you were given. Starting with
+ * nothing means a truck, a derrick, a generator and a factory before the first
+ * tower even begins, while an advanced base is already defended.
+ *
+ * @param {number} clean - "No bases"
+ * @param {number} base - "Bases"
+ * @param {number} advanced - "Advanced bases"
+ */
+function setStartTimes(clean, base, advanced)
+{
+	startTimes = { clean, base, advanced };
+}
+
+/**
+ * Extra seconds of build time granted by the wave slots' difficulty.
+ *
+ * A harder setting means a bigger first wave, so it also buys more time to
+ * prepare for it. With several wave slots the hardest one decides.
+ *
+ * @param {number} easy
+ * @param {number} medium
+ * @param {number} hard
+ * @param {number} insane
+ */
+function setDifficultyTimeBonus(easy, medium, hard, insane)
+{
+	timeBonus = { easy, medium, hard, insane };
+}
+
+/**
+ * How long there is to build before the first wave arrives.
+ *
+ * Meant to be used from config.js as the round 1 case of waitTime:
+ *
+ *   waitTime: round => round === 1 ? startTime() : 150,
+ *
+ * @returns {number} seconds
+ */
+function startTime()
+{
+	let seconds = startTimes.base;
+	if (baseType === CAMP_CLEAN)
+	{
+		seconds = startTimes.clean;
+	}
+	else if (baseType === CAMP_WALLS)
+	{
+		seconds = startTimes.advanced;
+	}
+
+	// The hardest wave slot sets the bonus: it is the one you have to survive.
+	let bonus = 0;
+	for (const player of wavePlayers)
+	{
+		if (player < maxPlayers)
+		{
+			bonus = Math.max(bonus, difficultyTimeBonus(playerData[player].difficulty));
+		}
+	}
+
+	return seconds + bonus;
+}
+
+function difficultyTimeBonus(difficulty)
+{
+	if (difficulty === EASY)
+	{
+		return timeBonus.easy;
+	}
+	if (difficulty === HARD)
+	{
+		return timeBonus.hard;
+	}
+	if (difficulty === INSANE)
+	{
+		return timeBonus.insane;
+	}
+	return timeBonus.medium;
+}
+
+/**
  * Configure how much power is rewarded by destroying a scavenger
  * @param {function(number): number} f - A function that takes the cost of the scavenger and returns an amount
  */
@@ -36,7 +119,7 @@ function setWaveSplit(split)
 
 /**
  * How far from the centre point units may appear, in tiles. Default 8.
- * Applies to the Base and Center spawn modes, and to where a meteor lands.
+ * Applies to the Base and Center spawn modes, and to where a drop pod lands.
  *
  * A wide area matters as much as a fast rate: units that all appear on the same
  * few tiles are killed as they arrive, however quickly they come.
@@ -62,35 +145,178 @@ function setSpawnRate(count)
 }
 
 /**
- * How far a meteor has to keep away from every defender HQ, in tiles.
+ * Read a setting the host chose in the lobby, falling back to a fixed value.
  *
- * @param {number} tiles
+ * Options are declared in mod-info.json under customTweakOptions and arrive in
+ * the tweakOptions global, which the game syncs to every player - so unlike
+ * config.js, this can differ from one game to the next without everyone having
+ * to install a different build.
+ *
+ * UNVERIFIED for multiplayer. The feature arrived in 4.5 as part of the campaign
+ * update and every example of it is a campaign mod; whether the multiplayer
+ * lobby shows these options is untested. Written defensively so that if it does
+ * not, the fallback is used and nothing breaks.
+ *
+ *   setDropPodEnabled(tweak("ud_dropPods", false))
+ *
+ * @param {string} id - the option id from mod-info.json
+ * @param {*} fallback - used when the host had no say
+ * @returns {*}
  */
-function setMeteorDistance(tiles)
+function tweak(id, fallback)
 {
-	Spawner.meteorMinDistance = tiles;
+	if (typeof tweakOptions === "undefined" || tweakOptions === null)
+	{
+		return fallback;
+	}
+	if (tweakOptions[id] === undefined)
+	{
+		return fallback;
+	}
+	return tweakOptions[id];
 }
 
 /**
- * How many units a meteor drops per tick. Higher lands the horde faster; too
+ * Whether player 1 announces this game's settings in chat at the start, and may
+ * change them during the opening window.
+ *
+ * config.js is fixed for everyone, and the lobby's tweak options are offered to
+ * campaign mods only, so chat is what is left: a message reaches every client
+ * through the netcode, so every client applies the same change.
+ *
+ *   !ud play blitz       load a preset from inside the mod
+ *   !ud waves 1.5        every round 50% bigger
+ *   !ud crates off       no boss salvage
+ *   !ud droppods on      allow the Drop Pod mode
+ *
+ * Only the first slot is listened to: a script is never told which client is
+ * the host, so player 1 is the nearest thing to an agreed authority.
+ *
+ * @param {boolean} enabled
+ */
+function setChatCommands(enabled)
+{
+	chatCommands = enabled;
+}
+
+/**
+ * How many seconds those commands are accepted for.
+ *
+ * The round reader is held back for exactly this long, so a preset arriving
+ * over chat can rebuild the whole round list before anything has read it. The
+ * window closes because a change applied a tick apart on two clients would have
+ * them computing different rounds from then on.
+ *
+ * @param {number} seconds
+ */
+function setConfigWindow(seconds)
+{
+	configWindowSeconds = seconds;
+}
+
+/**
+ * Whether player 1's client reads ultimatedefense.json from the Warzone
+ * configuration directory.
+ *
+ * Off by default, and not because it is unwanted: when the file is absent the
+ * engine prints "Failed to find file" on everyone's screen, and includeJSON's
+ * quiet flag does not reach far enough down to stop it. Turn it on only if you
+ * actually keep that file.
+ *
+ * Presets are the better route anyway - "!ud play blitz" names a file that
+ * ships inside the mod, so every client reads it from its own copy.
+ *
+ * @param {boolean} enabled
+ */
+function setExternalSettings(enabled)
+{
+	externalSettingsEnabled = enabled;
+}
+
+/**
+ * A multiplier on every round's budget, on top of everything else.
+ *
+ * Named apart from the waves block on purpose: "waves" describes how rounds are
+ * built, this scales what they are worth. Having both called the same thing was
+ * a collision waiting to be noticed.
+ *
+ * @param {number} scale
+ */
+function setWaveScale(scale)
+{
+	budgetMultiplier = scale;
+}
+
+/**
+ * Whether the Drop Pod spawn mode is allowed.
+ *
+ * The entry always shows in the lobby - Warzone builds that list from the .json
+ * files before any script runs, so this cannot remove it. What it does is refuse
+ * the behaviour: with drop pods off, a slot picked as Drop Pod plays as Base.
+ *
+ * @param {boolean} enabled
+ */
+function setDropPodEnabled(enabled)
+{
+	dropPodEnabled = enabled;
+
+	// Spawn modes were resolved at the start of the game, so a slot that fell back
+	// to Base has to be asked again now that the answer has changed. Done here
+	// rather than where the setting arrives, so it happens on every machine.
+	if (typeof Spawner !== "undefined" && Array.isArray(wavePlayers))
+	{
+		for (const player of wavePlayers)
+		{
+			Spawner.modes[player] = resolveSpawnMode(player);
+		}
+	}
+}
+
+/**
+ * Whether VTOL factories are locked to zero for everyone.
+ *
+ * On by default, and it applies to the defenders too, not just the horde - this
+ * is a ground game by design. Turning it off lets people build VTOLs, but the
+ * waves still cannot: flying designs are filtered out of the catalogue when it
+ * is generated.
+ *
+ * @param {boolean} disabled
+ */
+function setVTOLsDisabled(disabled)
+{
+	vtolsDisabled = disabled;
+}
+
+/**
+ * How far a drop pod has to keep away from every defender HQ, in tiles.
+ *
+ * @param {number} tiles
+ */
+function setDropPodDistance(tiles)
+{
+	Spawner.dropPodMinDistance = tiles;
+}
+
+/**
+ * How many units a drop pod drops per tick. Higher lands the horde faster; too
  * high will stutter the game on the round change.
  *
  * @param {number} count
  */
-function setMeteorBurst(count)
+function setDropPodBurst(count)
 {
-	Spawner.meteorBurst = count;
+	Spawner.dropPodBurst = count;
 }
 
 /**
- * How long a meteor's beacon shows before the horde actually lands, in seconds.
+ * How long a drop pod's beacon shows before the horde actually lands, in seconds.
  * Set to 0 for no warning at all.
  *
  * @param {number} seconds
  */
-function setMeteorWarning(seconds)
+function setDropPodWarning(seconds)
 {
-	Spawner.meteorWarning = seconds;
+	Spawner.dropPodWarning = seconds;
 }
 
 /**

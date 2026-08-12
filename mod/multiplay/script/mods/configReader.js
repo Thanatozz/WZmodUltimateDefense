@@ -70,7 +70,7 @@ function processRound(action)
 	console(_("Round") + " " + action.round + "/" + totalRounds);
 	console(" ");
 	Spawner.rank = ranks[action.round];
-	Spawner.newRound(); // re-roll the random and meteor spawn points
+	Spawner.newRound(); // re-roll the random and drop pod spawn points
 	checkHQGrace(action.round); // no more free rebuilds once the waves start
 	rollRoundFlavour(action.tierFloor);
 	crateDroppedThisRound = false;
@@ -529,6 +529,9 @@ function resolvePool(pool)
  */
 function varyBudget(power)
 {
+	// Whatever "!ud waves" was set to, if anyone used it
+	power = power * budgetMultiplier;
+
 	if (budgetVariance <= 0)
 	{
 		return Math.round(power);

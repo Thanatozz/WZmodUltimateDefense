@@ -37,11 +37,14 @@ class Spawner
 	// Tunables, see configAPI.js
 	static rate = 5;               // units released per tick
 	static radius = 8;             // how wide the base/center spawn area is
-	static meteorMinDistance = 20; // tiles a meteor must keep from every HQ
-	static meteorBurst = 25;       // meteor units spawned per tick
-	static meteorWarning = 10;     // seconds of warning before a meteor lands
+	static dropPodMinDistance = 20; // tiles a drop pod must keep from every HQ
+	static dropPodBurst = 25;       // drop pod units spawned per tick
+	static dropPodWarning = 10;     // seconds of warning before a drop pod lands
 	static campRadius = 4;         // tiles that count as sitting on a spawn point
 	static campTries = 6;          // how many tiles to check before giving up
+	static reachable = {};         // "x,y" -> can the horde walk from there to an HQ
+	static spiralStart = 0;        // where in the spiral this round begins
+	static spiralStep = 0;         // how far along it the round has got
 
 	/**
 	 * @returns {number} how many units were actually spawned
@@ -55,7 +58,7 @@ class Spawner
 
 		const player = Spawner.queue[0].player;
 
-		// A meteor holds off until its warning has run, so the defenders get to
+		// A drop pod holds off until its warning has run, so the defenders get to
 		// see the beacon before the horde lands on it.
 		if (Spawner.readyAt[player] > gameTime)
 		{
@@ -71,15 +74,15 @@ class Spawner
 			return 0;
 		}
 
-		// A meteor is meant to land as one horde. The rest come in at the normal
+		// A drop pod is meant to land as one horde. The rest come in at the normal
 		// rate, which is still several at a time - trickling them out one by one
 		// lets the defenders pick them off as they appear, which is not a wave.
-		const meteor = Spawner.modes[player] === "meteor";
-		const burst = meteor ? Spawner.meteorBurst : Spawner.rate;
+		const dropPod = Spawner.modes[player] === "droppod";
+		const burst = dropPod ? Spawner.dropPodBurst : Spawner.rate;
 
-		// A meteor lands on a single spot; everything else spreads over its area
+		// A drop pod lands on a single spot; everything else spreads over its area
 		// so a batch does not arrive in one killable pile.
-		const shared = meteor ? Spawner.pickLocation(locations) : null;
+		const shared = dropPod ? Spawner.pickLocation(locations) : null;
 
 		const batch = Spawner.take(player, burst);
 		for (const entry of batch)
@@ -115,16 +118,25 @@ class Spawner
 	static pickLocation(locations)
 	{
 		const defenders = waveDefenders();
-		let fallback = null;
 
-		for (let attempt = 0; attempt < Spawner.campTries; attempt++)
+		// No randomness at all here, by design. The tiles are already in spiral
+		// order, so walking them in sequence spreads a batch out from the centre
+		// on its own - and the whole round only ever rolled one number, back in
+		// newRound(), to decide where in the spiral to begin.
+		//
+		// It used to roll per unit, and roll again for every tile it rejected as
+		// camped. syncRandom() is a sequence shared by every machine in the game:
+		// a client that rolls a different number of times is reading different
+		// numbers from then on, and the horde comes in somewhere else on its
+		// screen. That is what was breaking multiplayer.
+		const total = locations.length;
+		const start = Spawner.spiralStart + Spawner.spiralStep;
+		Spawner.spiralStep++;
+
+		const tries = Math.min(Spawner.campTries, total);
+		for (let i = 0; i < tries; i++)
 		{
-			const candidate = locations[syncRandom(locations.length)];
-			if (fallback === null)
-			{
-				fallback = candidate;
-			}
-
+			const candidate = locations[(start + i) % total];
 			if (!Spawner.isCamped(candidate[0], candidate[1], defenders))
 			{
 				return candidate;
@@ -133,7 +145,7 @@ class Spawner
 
 		// Everything we looked at was covered. Come in anyway: refusing to spawn
 		// would stall the round and hand the game to whoever camped hardest.
-		return fallback;
+		return locations[start % total];
 	}
 
 	static isCamped(x, y, defenders)
@@ -159,7 +171,7 @@ class Spawner
 	/**
 	 * Pull up to `count` of that player's units off the queue.
 	 *
-	 * Without splitting, the queue interleaves the wave players, so a meteor's
+	 * Without splitting, the queue interleaves the wave players, so a drop pod's
 	 * burst cannot just read from the front.
 	 *
 	 * @returns {object[]} queue entries
@@ -191,10 +203,6 @@ class Spawner
 	}
 
 	/**
-	 * An empty array means "already looked, found nothing" - do not rescan, or
-	 * a map with no usable tiles would redo the whole search for every unit.
-	 */
-	/**
 	 * One of the parts a design is built from, for a boss to drop.
 	 *
 	 * Its own body, propulsion or one of its guns - so the crate is a piece of
@@ -209,6 +217,10 @@ class Spawner
 		return parts[syncRandom(parts.length)];
 	}
 
+	/**
+	 * An empty array means "already looked, found nothing" - do not rescan, or
+	 * a map with no usable tiles would redo the whole search for every unit.
+	 */
 	static locationsFor(player)
 	{
 		if (Spawner.locations[player] === undefined)
@@ -219,18 +231,43 @@ class Spawner
 	}
 
 	/**
-	 * Called from processRound(). Re-rolls the Random and Meteor spawn points,
-	 * and refreshes the rest, since reachability changes as HQs are destroyed.
+	 * Called from processRound(). Re-rolls the spawn points of the two modes that
+	 * are meant to move, and leaves the rest alone.
+	 *
+	 * It used to rebuild every mode's tiles each round, on the grounds that
+	 * reachability changes as HQs are destroyed. That was a desync: the tiles are
+	 * chosen with propulsionCanReach(), a pathfinding query answered against the
+	 * blocking map as it stands right now, and by the seventh minute two clients
+	 * with bases going up around them do not always answer it the same way in the
+	 * same tick. Different tiles, same random number - the horde came in somewhere
+	 * else on each screen. A spawn area is fixed terrain around a fixed start
+	 * position, so working it out once is both safer and cheaper.
 	 */
 	static newRound()
 	{
+		// The round's one and only roll for where the horde comes in. Everything
+		// after this walks the spiral in order, so the number of syncRandom()
+		// calls a round makes is fixed no matter what happens in the game - which
+		// is what keeps every machine reading the same numbers.
+		//
+		// A large prime so that the same list of tiles gives a different-looking
+		// starting point each round, whatever its length.
+		Spawner.spiralStart = syncRandom(9973);
+		Spawner.spiralStep = 0;
+
 		for (const player of Spawner.players)
 		{
-			Spawner.updateLocations(player);
+			const mode = Spawner.modes[player];
 
-			if (Spawner.modes[player] === "meteor")
+			// These two pick a new area every round by design
+			if (mode === "random" || mode === "droppod")
 			{
-				Spawner.warnMeteor(player);
+				Spawner.updateLocations(player);
+			}
+
+			if (mode === "droppod")
+			{
+				Spawner.warnDropPod(player);
 			}
 		}
 	}
@@ -242,7 +279,7 @@ class Spawner
 	 * A beacon is the game's own map marker, so it shows up on the minimap and
 	 * on the terrain without the mod having to draw anything.
 	 */
-	static warnMeteor(player)
+	static warnDropPod(player)
 	{
 		const locations = Spawner.locations[player];
 		if (!locations || locations.length === 0)
@@ -261,7 +298,7 @@ class Spawner
 			addBeacon(x, y, defender);
 		}
 
-		Spawner.readyAt[player] = gameTime + Spawner.meteorWarning * 1000;
+		Spawner.readyAt[player] = gameTime + Spawner.dropPodWarning * 1000;
 	}
 
 	/**
@@ -285,9 +322,9 @@ class Spawner
 			const { x, y, x2, y2 } = getScrollLimits();
 			locations = Spawner.tilesAround(Math.floor((x + x2) / 2), Math.floor((y + y2) / 2));
 		}
-		else if (mode === "meteor")
+		else if (mode === "droppod")
 		{
-			locations = Spawner.meteorTiles();
+			locations = Spawner.dropPodTiles();
 		}
 		else if (startPositions[player])
 		{
@@ -295,7 +332,7 @@ class Spawner
 		}
 
 		// Every mode falls back to the edges: a slot may have no usable start
-		// position, and a meteor may find no spot far enough from the HQs.
+		// position, and a drop pod may find no spot far enough from the HQs.
 		if (locations.length === 0)
 		{
 			locations = Spawner.edgeTiles();
@@ -305,6 +342,15 @@ class Spawner
 	}
 
 	/**
+	 * Spawnable tiles around a point, centre first and working outwards.
+	 *
+	 * The order is the whole point. Units are handed tiles from this list in
+	 * sequence, so a batch lands as a block growing out of the middle rather than
+	 * scattered over the area - and, more importantly, the list is built the same
+	 * way on every machine. Nothing here asks the game a question whose answer can
+	 * change between clients: it walks fixed rings around a fixed centre, in a
+	 * fixed direction, starting from the same corner every time.
+	 *
 	 * @param {number} cx - tile coordinate
 	 * @param {number} cy - tile coordinate
 	 * @returns {number[][]} spawnable tiles within Spawner.radius of the centre
@@ -313,11 +359,15 @@ class Spawner
 	{
 		const canSpawnAt = Spawner.spawnFilter();
 		const result = [];
-		const r = Spawner.radius;
 
-		for (let x = cx - r; x <= cx + r; x++)
+		if (canSpawnAt(cx, cy))
 		{
-			for (let y = cy - r; y <= cy + r; y++)
+			result.push([cx, cy]);
+		}
+
+		for (let ring = 1; ring <= Spawner.radius; ring++)
+		{
+			for (const [x, y] of Spawner.ringTiles(cx, cy, ring))
 			{
 				if (canSpawnAt(x, y))
 				{
@@ -327,6 +377,42 @@ class Spawner
 		}
 
 		return result;
+	}
+
+	/**
+	 * One square ring of tiles, walked clockwise from its top-left corner.
+	 *
+	 * @param {number} cx - tile coordinate of the centre
+	 * @param {number} cy - tile coordinate of the centre
+	 * @param {number} ring - how many tiles out from the centre
+	 * @returns {number[][]} the ring, in order
+	 */
+	static ringTiles(cx, cy, ring)
+	{
+		const tiles = [];
+		const x1 = cx - ring;
+		const y1 = cy - ring;
+		const x2 = cx + ring;
+		const y2 = cy + ring;
+
+		for (let x = x1; x < x2; x++)
+		{
+			tiles.push([x, y1]); // top edge, left to right
+		}
+		for (let y = y1; y < y2; y++)
+		{
+			tiles.push([x2, y]); // right edge, top to bottom
+		}
+		for (let x = x2; x > x1; x--)
+		{
+			tiles.push([x, y2]); // bottom edge, right to left
+		}
+		for (let y = y2; y > y1; y--)
+		{
+			tiles.push([x1, y]); // left edge, bottom to top
+		}
+
+		return tiles;
 	}
 
 	/**
@@ -373,12 +459,12 @@ class Spawner
 	 *
 	 * @returns {number[][]} the tiles around that spot, or [] if none was found
 	 */
-	static meteorTiles()
+	static dropPodTiles()
 	{
 		const canSpawnAt = Spawner.spawnFilter();
 		const hqs = Spawner.defenderHQs();
 		const { x: x1, y: y1, x2, y2 } = getScrollLimits();
-		const minDistance = Spawner.meteorMinDistance;
+		const minDistance = Spawner.dropPodMinDistance;
 
 		const farEnough = (x, y) => hqs.every(hq =>
 		{
@@ -387,12 +473,28 @@ class Spawner
 			return Math.sqrt(dx * dx + dy * dy) >= minDistance;
 		});
 
-		// Sampling beats scanning the whole map: most maps have plenty of valid
-		// spots, and a full scan runs every single round.
-		for (let attempt = 0; attempt < 200; attempt++)
+		const width = Math.max(1, x2 - x1 - 2);
+		const height = Math.max(1, y2 - y1 - 2);
+		const tiles = width * height;
+
+		// One roll, then a fixed sweep. This used to roll a fresh pair of
+		// coordinates for every attempt, up to two hundred times, so the number of
+		// syncRandom() calls depended on how quickly a valid spot turned up - and
+		// a machine that rolls a different number of times is reading different
+		// numbers from then on. Now the roll only says where to start looking.
+		//
+		// Stepping by a prime walks the whole map without ever repeating a tile,
+		// and lands somewhere different each step rather than crawling along one
+		// row - so the first spot it accepts is still spread over the map.
+		const start = syncRandom(tiles);
+		const stride = 7919;
+		const attempts = Math.min(tiles, 200);
+
+		for (let i = 0; i < attempts; i++)
 		{
-			const x = x1 + 1 + syncRandom(Math.max(1, x2 - x1 - 2));
-			const y = y1 + 1 + syncRandom(Math.max(1, y2 - y1 - 2));
+			const index = (start + i * stride) % tiles;
+			const x = x1 + 1 + (index % width);
+			const y = y1 + 1 + Math.floor(index / width);
 
 			if (canSpawnAt(x, y) && farEnough(x, y))
 			{
@@ -412,9 +514,23 @@ class Spawner
 		const hqs = Spawner.defenderHQs();
 		return (x, y) =>
 		{
-			return terrainType(x, y) !== TER_CLIFFFACE
-				&& terrainType(x, y) !== TER_WATER
-				&& hqs.some(hq => propulsionCanReach("wheeled01", x, y, hq.x, hq.y));
+			if (terrainType(x, y) === TER_CLIFFFACE || terrainType(x, y) === TER_WATER)
+			{
+				return false; // terrain never changes, so this needs no cache
+			}
+
+			// Asked once per tile per game, and the first answer stands. The query
+			// runs against the blocking map as it is right now, so asking again
+			// later can give a different answer on one client than on another -
+			// and every client has to agree on where the horde comes in.
+			const key = x + "," + y;
+			if (Spawner.reachable[key] === undefined)
+			{
+				Spawner.reachable[key] =
+					hqs.some(hq => propulsionCanReach("wheeled01", x, y, hq.x, hq.y));
+			}
+
+			return Spawner.reachable[key];
 		};
 	}
 

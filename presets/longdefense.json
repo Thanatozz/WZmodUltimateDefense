@@ -1,0 +1,81 @@
+{
+	"researchDelay": 480,
+	"budgetVariance": 0.15,
+	"startTimes": {
+		"clean": 480,
+		"base": 360,
+		"advanced": 240
+	},
+	"difficultyTimeBonus": {
+		"easy": 0,
+		"medium": 0,
+		"hard": 60,
+		"insane": 120
+	},
+	"waves": {
+		"rounds": 50,
+		"budgetStart": 300,
+		"budgetGrowth": 1.14,
+		"waitNormal": 180,
+		"waitBreather": 300,
+		"breatherEvery": 10,
+		"roundsPerTier": 9,
+		"tierSpread": 1,
+		"composition": {
+			"light": 0.5,
+			"medium": 0.35,
+			"heavy": 0.15
+		},
+		"special": {
+			"chance": 0.25
+		},
+		"swarm": {
+			"chance": 0.2,
+			"tierShift": 1
+		},
+		"boss": {
+			"every": 5,
+			"countStart": 12,
+			"countDecline": 5,
+			"chassis": [
+				{
+					"untilRound": 8,
+					"bodies": [
+						"Viper"
+					]
+				},
+				{
+					"untilRound": 17,
+					"bodies": [
+						"Python"
+					]
+				},
+				{
+					"untilRound": 26,
+					"bodies": [
+						"Tiger",
+						"Leopard"
+					]
+				},
+				{
+					"untilRound": 35,
+					"bodies": [
+						"Vengeance"
+					]
+				},
+				{
+					"untilRound": 44,
+					"bodies": [
+						"Wyvern"
+					]
+				},
+				{
+					"untilRound": 99,
+					"bodies": [
+						"Dragon"
+					]
+				}
+			]
+		}
+	}
+}

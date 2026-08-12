@@ -1,0 +1,48 @@
+{
+	"name": "Ultimate Defense",
+	"version": "1.0.0",
+	"author": "Thanatozz",
+	"type": "multiplay",
+	"license": "GPL-2.0-or-later",
+	"minVersionSupported": "4.6.3",
+	"maxVersionTested": "4.7.0",
+	"description": {
+		"en": "Hold your Command Center against thirty generated rounds. Pick a Wave Defense AI in the lobby to choose where the waves come from."
+	},
+	"updatesUrl": "https://github.com/Thanatozz/WZmodUltimateDefense/releases/latest",
+	"customTweakOptions": [
+		{
+			"id": "ud_dropPods",
+			"type": "bool",
+			"default": false,
+			"displayName": {
+				"en": "Allow Drop Pods"
+			},
+			"description": {
+				"en": "Lets the Drop Pod spawn mode work. A drop pod lands a whole round on one spot away from the defenders, with a beacon warning first. Off by default because a bad landing is brutally unfair. With it off, a slot picked as Drop Pod plays as Base."
+			}
+		},
+		{
+			"id": "ud_bossCrates",
+			"type": "bool",
+			"default": true,
+			"displayName": {
+				"en": "Boss Salvage"
+			},
+			"description": {
+				"en": "A dead boss leaves a crate holding one of its own components. Pick it up with any unit and that component becomes buildable. One crate per round."
+			}
+		},
+		{
+			"id": "ud_vtols",
+			"type": "bool",
+			"default": false,
+			"displayName": {
+				"en": "Allow VTOLs"
+			},
+			"description": {
+				"en": "Unlocks VTOL factories for the defenders. The waves never fly either way: flying designs are filtered out of the unit catalogue when it is generated."
+			}
+		}
+	]
+}

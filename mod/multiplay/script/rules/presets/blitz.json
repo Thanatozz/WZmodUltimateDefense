@@ -1,0 +1,70 @@
+{
+	"researchDelay": 240,
+	"startTimes": {
+		"clean": 300,
+		"base": 180,
+		"advanced": 120
+	},
+	"spawnRate": 8,
+	"hqBlastRadius": 8,
+	"waves": {
+		"rounds": 15,
+		"budgetStart": 600,
+		"budgetGrowth": 1.55,
+		"waitNormal": 110,
+		"waitBreather": 160,
+		"breatherEvery": 5,
+		"roundsPerTier": 3,
+		"tierSpread": 1,
+		"composition": {
+			"light": 0.35,
+			"medium": 0.4,
+			"heavy": 0.25
+		},
+		"special": {
+			"chance": 0.3
+		},
+		"swarm": {
+			"chance": 0.25,
+			"tierShift": 1
+		},
+		"boss": {
+			"every": 3,
+			"countStart": 10,
+			"countDecline": 2,
+			"chassis": [
+				{
+					"untilRound": 3,
+					"bodies": [
+						"Viper"
+					]
+				},
+				{
+					"untilRound": 6,
+					"bodies": [
+						"Python"
+					]
+				},
+				{
+					"untilRound": 9,
+					"bodies": [
+						"Tiger",
+						"Leopard"
+					]
+				},
+				{
+					"untilRound": 12,
+					"bodies": [
+						"Vengeance"
+					]
+				},
+				{
+					"untilRound": 99,
+					"bodies": [
+						"Dragon"
+					]
+				}
+			]
+		}
+	}
+}

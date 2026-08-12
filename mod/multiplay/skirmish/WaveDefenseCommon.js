@@ -19,7 +19,25 @@ const WAVE_SCRIPTS = {
 	"WaveDefenseSurround.js": "surround",
 	"WaveDefenseRandom.js":   "random",
 	"WaveDefenseCenter.js":   "center",
-	"WaveDefenseMeteor.js":   "meteor",
+	"WaveDefenseDropPod.js":   "droppod",
+};
+
+// The same list again, by the name each of those scripts gives its slot in the
+// lobby. It is here because scriptName is not to be relied on: a client that
+// joins a game does not get it, and the host does - so the host would see a Wave
+// Defense slot where the client saw an ordinary AI, and the two would generate
+// different games from the first tick. The slot's name IS carried to everyone
+// (the game's own sync log prints it identically on both ends), so it is what
+// this actually resolves on, with scriptName kept as a second opinion.
+//
+// A new mode needs its entry in both tables, and the name has to match the
+// "name" field of the matching .json exactly.
+const WAVE_NAMES = {
+	"Wave Defense - Base":     "base",
+	"Wave Defense - Surround": "surround",
+	"Wave Defense - Random":   "random",
+	"Wave Defense - Center":   "center",
+	"Wave Defense - Drop Pod": "droppod",
 };
 
 // Use `var` so the target list survives save-loads in the rules script context.
@@ -128,7 +146,7 @@ function waveScriptPlayers()
 	const result = [];
 	for (let player = 0; player < maxPlayers; player++)
 	{
-		if (WAVE_SCRIPTS.hasOwnProperty(playerData[player].scriptName))
+		if (waveModeOf(player) !== null)
 		{
 			result.push(player);
 		}
@@ -142,5 +160,43 @@ function waveScriptPlayers()
  */
 function waveSpawnMode(player)
 {
-	return WAVE_SCRIPTS[playerData[player].scriptName] || "base";
+	return waveModeOf(player) || "base";
+}
+
+/**
+ * Which wave mode a slot runs, or null if it is not a wave slot at all.
+ *
+ * Guarded against a player number with nothing behind it, which is not a
+ * hypothetical: the scavenger slot sits outside playerData, and the fallback in
+ * getWavePlayers() hands it straight to here. That threw, the exception took
+ * down the whole of eventStartLevel on the client, and the mod then did nothing
+ * at all on that machine - which looked exactly like a desync, because it was
+ * one.
+ *
+ * @param {number} player
+ * @returns {string|null}
+ */
+function waveModeOf(player)
+{
+	const data = playerData[player];
+	if (data === undefined)
+	{
+		return null;
+	}
+
+	// A trailing "_2" is the game keeping two slots apart, the way it turns a
+	// second "Jugador" into "Jugador_2". Two Wave Defense slots in one game is a
+	// supported setup, so the suffix comes off before the name is looked up.
+	const name = String(data.name).replace(/_\d+$/, "");
+	if (WAVE_NAMES.hasOwnProperty(name))
+	{
+		return WAVE_NAMES[name];
+	}
+
+	if (WAVE_SCRIPTS.hasOwnProperty(data.scriptName))
+	{
+		return WAVE_SCRIPTS[data.scriptName];
+	}
+
+	return null;
 }
